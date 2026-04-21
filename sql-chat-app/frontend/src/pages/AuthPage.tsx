@@ -3,7 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import logo from '../media/logo_talk2db.png';
 import './AuthPage.css';
 
-const AuthPage: React.FC = () => {
+interface AuthPageProps {
+  onBack?: () => void;
+}
+
+const AuthPage: React.FC<AuthPageProps> = ({ onBack }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -67,6 +71,22 @@ const AuthPage: React.FC = () => {
     <div className="auth-page">
       <div className="auth-container">
         <div className="auth-header">
+          {onBack && (
+            <button onClick={onBack} className="back-btn" style={{
+              position: 'absolute',
+              top: '20px',
+              left: '20px',
+              background: 'transparent',
+              border: '1px solid #333',
+              color: '#888',
+              padding: '4px 12px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}>
+              ← Back to Chat
+            </button>
+          )}
           <img src={logo} alt="Talk2DB Logo" className="auth-logo" style={{ width: '80px', marginBottom: '20px' }} />
           <h1>Talk2DB</h1>
           <p>{isLogin ? 'Welcome back!' : 'Create your account'}</p>

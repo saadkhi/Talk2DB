@@ -7,6 +7,7 @@ import './App.css';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, loading } = useAuth();
+  const [showAuth, setShowAuth] = React.useState(false);
 
   if (loading) {
     return (
@@ -22,7 +23,17 @@ const AppContent: React.FC = () => {
     );
   }
 
-  return isAuthenticated ? <ChatPage /> : <AuthPage />;
+  // If user is authenticated, always show ChatPage
+  if (isAuthenticated) {
+    return <ChatPage />;
+  }
+
+  // For unauthenticated users, show ChatPage by default but allow switching to AuthPage
+  if (showAuth) {
+    return <AuthPage onBack={() => setShowAuth(false)} />;
+  }
+
+  return <ChatPage onRequireAuth={() => setShowAuth(true)} />;
 };
 
 function App() {

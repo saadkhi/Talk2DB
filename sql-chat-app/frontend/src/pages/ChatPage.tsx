@@ -17,8 +17,16 @@ interface Conversation {
   created_at: string;
 }
 
-const ChatPage: React.FC = () => {
-  const { user, logout } = useAuth();
+interface ChatPageProps {
+  onRequireAuth?: () => void;
+}
+
+const ChatPage: React.FC<ChatPageProps> = ({ onRequireAuth }) => {
+  const { user, logout, isAuthenticated } = useAuth();
+  const [guestPromptCount, setGuestPromptCount] = useState(() => {
+    return parseInt(localStorage.getItem('guest_prompt_count') || '0', 10);
+  });
+  const [showLimitReached, setShowLimitReached] = useState(false);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -102,6 +110,12 @@ const ChatPage: React.FC = () => {
   const sendMessage = async () => {
     if (!message.trim() || isLoading) return;
 
+    // Limit for unauthenticated users
+    if (!isAuthenticated && guestPromptCount >= 5) {
+      setShowLimitReached(true);
+      return;
+    }
+
     const userMessage = message;
     setMessage('');
     setIsLoading(true);
@@ -124,11 +138,22 @@ const ChatPage: React.FC = () => {
           { role: 'assistant', content: response.data.response },
         ]);
 
+        // If guest, increment count
+        if (!isAuthenticated) {
+          const newCount = guestPromptCount + 1;
+          setGuestPromptCount(newCount);
+          localStorage.setItem('guest_prompt_count', newCount.toString());
+
+          if (newCount >= 5) {
+            setShowLimitReached(true);
+          }
+        }
+
         // If this was a new conversation, update state and fetch list
-        if (!currentConversationId && response.data.conversation_id) {
+        if (!currentConversationId && response.data.conversation_id && isAuthenticated) {
           setCurrentConversationId(response.data.conversation_id);
           fetchConversations();
-        } else {
+        } else if (isAuthenticated) {
           // Refresh list to update timestamps/titles
           fetchConversations();
         }
@@ -200,7 +225,11 @@ const ChatPage: React.FC = () => {
           </header>
 
           <p className="subtext" style={{ padding: '0 24px' }}>
-            Welcome, {user?.username || 'User'}! Your messages are routed to the Talk2DB backend.
+            {isAuthenticated ? (
+              <>hey {user?.username || 'User'}</>
+            ) : (
+              <>Welcome! You have {Math.max(0, 5 - guestPromptCount)} free prompts remaining.</>
+            )}
           </p>
 
 
@@ -255,10 +284,47 @@ const ChatPage: React.FC = () => {
               placeholder="Type your SQL query or question here..."
               disabled={isLoading}
             />
-            <button onClick={sendMessage} disabled={isLoading || !message.trim()}>
+            <button
+              onClick={sendMessage}
+              disabled={isLoading || !message.trim() || (!isAuthenticated && guestPromptCount >= 5)}
+              className={(!isAuthenticated && guestPromptCount >= 5) ? 'disabled-btn' : ''}
+            >
               {isLoading ? '...' : 'Send'}
             </button>
           </div>
+
+          {!isAuthenticated && showLimitReached && (
+            <div className="limit-overlay" style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.85)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              borderRadius: '16px',
+              textAlign: 'center',
+              padding: '40px'
+            }}>
+              <h2 style={{ color: '#39ff14', marginBottom: '16px' }}>Prompt Limit Reached</h2>
+              <p style={{ color: '#fff', marginBottom: '24px', maxWidth: '400px' }}>
+                You've used all 5 of your free guest prompts. Please login or register to continue using Talk2DB.
+              </p>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <button
+                  onClick={onRequireAuth}
+                  className="auth-submit"
+                  style={{ padding: '12px 24px' }}
+                >
+                  Login / Register
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

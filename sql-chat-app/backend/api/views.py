@@ -117,7 +117,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 class ChatView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         try:
@@ -132,7 +132,21 @@ class ChatView(APIView):
 
             logger.info(f"Received message: {user_message_content}")
 
-            # Get or create conversation
+            # Handle guest user
+            if not request.user.is_authenticated:
+                try:
+                    response_text: str = generate_model_response(user_message_content)
+                except Exception as gen_err:
+                    logger.error(f"Gradio model call failed, falling back. Details: {gen_err}")
+                    logger.error(traceback.format_exc())
+                    response_text = generate_fallback_response(user_message_content)
+                
+                return Response({
+                    "response": response_text,
+                    "guest": True
+                })
+
+            # Get or create conversation for authenticated user
             conversation = None
             if conversation_id:
                 conversation = get_object_or_404(Conversation, id=conversation_id, user=request.user)
