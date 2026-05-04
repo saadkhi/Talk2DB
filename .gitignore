@@ -167,3 +167,9 @@ model_lora/
 *.safetensors
 *.bin
 *.pt
+
+# Node
+node_modules/
+package-lock.json
+sql-chat-app/nextjs-app/package.json
+

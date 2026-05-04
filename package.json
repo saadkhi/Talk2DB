@@ -1,0 +1,12 @@
+{
+    "name": "talk2db-root",
+    "version": "1.0.0",
+    "description": "Root runner for Talk2DB",
+    "scripts": {
+        "install:all": "npm install --prefix sql-chat-app/nextjs-app",
+        "dev": "npm run dev --prefix sql-chat-app/nextjs-app",
+        "build": "npm run build --prefix sql-chat-app/nextjs-app",
+        "start": "npm run start --prefix sql-chat-app/nextjs-app"
+    },
+    "devDependencies": {}
+}

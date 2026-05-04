@@ -49,7 +49,25 @@ ${intro}
 
 export async function POST(req: Request) {
     try {
-        const { message: userMessage, conversation_id } = await req.json();
+        const contentType = req.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            return NextResponse.json(
+                { error: "Content-Type must be application/json" },
+                { status: 400 }
+            );
+        }
+
+        let body;
+        try {
+            body = await req.json();
+        } catch (e) {
+            return NextResponse.json(
+                { error: "Invalid or empty JSON body" },
+                { status: 400 }
+            );
+        }
+
+        const { message: userMessage, conversation_id } = body;
 
         if (!userMessage) {
             return NextResponse.json(
