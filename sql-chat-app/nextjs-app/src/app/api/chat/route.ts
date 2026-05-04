@@ -4,8 +4,26 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
 import { Client } from "@gradio/client";
 
+import path from "path";
+import fs from "fs/promises";
+
 const GRADIO_SPACE = process.env.GRADIO_SPACE || "saadkhi/SQL_chatbot_API";
 const HF_TOKEN = process.env.HF_TOKEN;
+
+// Cache system prompt
+let systemPromptCache: string | null = null;
+
+async function getSystemPrompt() {
+    if (systemPromptCache) return systemPromptCache;
+    try {
+        const promptPath = path.join(process.cwd(), "src/app/api/chat/system_prompt.txt");
+        systemPromptCache = await fs.readFile(promptPath, "utf-8");
+        return systemPromptCache;
+    } catch (error) {
+        console.error("Failed to read system prompt:", error);
+        return "";
+    }
+}
 
 // Cache Gradio client
 let gradioClient: any = null;
@@ -32,15 +50,15 @@ function generateFallbackResponse(userMessage: string) {
         "Here's a structured reply you can use:";
     const template = `
 ${intro}
-
+ 
 1) I received your request:
    "${userMessage}"
-
+ 
 2) Suggested next steps:
 - Confirm the database tables and columns involved.
 - Identify any filters, ordering, or aggregations needed.
 - Translate the above into SQL using the database's dialect.
-
+ 
 3) Example prompt you can try once the model is ready:
    "Write a SQL query to address: ${userMessage}"
   `.trim();
@@ -76,6 +94,9 @@ export async function POST(req: Request) {
             );
         }
 
+        const systemPrompt = await getSystemPrompt();
+        const fullPrompt = systemPrompt ? `${systemPrompt}\n\nUser Question: ${userMessage}` : userMessage;
+
         const session = await getServerSession(authOptions);
 
         // Handle guest user
@@ -83,7 +104,7 @@ export async function POST(req: Request) {
             try {
                 const client = await getGradioClient();
                 const result = await client.predict("/generate_sql", {
-                    user_input: userMessage,
+                    user_input: fullPrompt,
                 });
                 const responseText = String(result.data).trim();
                 return NextResponse.json({
@@ -136,7 +157,7 @@ export async function POST(req: Request) {
         try {
             const client = await getGradioClient();
             const result = await client.predict("/generate_sql", {
-                user_input: userMessage,
+                user_input: fullPrompt,
             });
             responseText = String(result.data).trim();
         } catch (genErr) {
