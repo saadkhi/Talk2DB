@@ -57,15 +57,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ onRequireAuth }) => {
         scrollToBottom();
     }, [messages]);
 
-    // Fetch conversations on mount or when auth state changes
-    useEffect(() => {
-        if (isAuthenticated) {
-            fetchConversations();
-        } else {
-            setConversations([]);
-        }
-    }, [isAuthenticated]);
-
     const fetchConversations = async () => {
         try {
             const response = await fetch('/api/conversations');
@@ -77,6 +68,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ onRequireAuth }) => {
             console.error('Error fetching conversations:', err);
         }
     };
+
+    // Fetch conversations on mount or when auth state changes
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchConversations();
+        } else {
+            setConversations([]);
+        }
+    }, [isAuthenticated]);
 
     const loadConversation = async (id: string) => {
         try {
@@ -243,13 +243,30 @@ const ChatPage: React.FC<ChatPageProps> = ({ onRequireAuth }) => {
                                 <span className={`dot ${isLoading ? 'warning' : 'ok'}`} />
                                 {isLoading ? 'Waiting for response...' : 'Ready'}
                             </div>
-                            <button
-                                onClick={() => signOut()}
-                                className="logout-btn"
-                                style={{ display: isAuthenticated ? 'block' : 'none' }}
-                            >
-                                Logout
-                            </button>
+
+                            {isAuthenticated ? (
+                                <button
+                                    onClick={() => signOut()}
+                                    className="logout-btn"
+                                >
+                                    Logout
+                                </button>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        onClick={onRequireAuth}
+                                        className="login-btn"
+                                    >
+                                        Login
+                                    </button>
+                                    <button
+                                        onClick={onRequireAuth}
+                                        className="register-btn"
+                                    >
+                                        Register
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </header>
 
@@ -341,7 +358,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ onRequireAuth }) => {
                         }}>
                             <h2 style={{ color: '#39ff14', marginBottom: '16px' }}>Prompt Limit Reached</h2>
                             <p style={{ color: '#fff', marginBottom: '24px', maxWidth: '400px' }}>
-                                You've used all 5 of your free guest prompts. Please login or register to continue using Talk2DB.
+                                You&apos;ve used all 5 of your free guest prompts. Please login or register to continue using Talk2DB.
                             </p>
                             <div style={{ display: 'flex', gap: '16px' }}>
                                 <button

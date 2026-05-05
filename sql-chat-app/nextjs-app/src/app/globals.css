@@ -318,6 +318,38 @@ body {
   background: #111;
 }
 
+.login-btn,
+.register-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.login-btn {
+  background: transparent;
+  border: 1px solid #39ff14;
+  color: #39ff14;
+}
+
+.login-btn:hover {
+  background: rgba(57, 255, 20, 0.1);
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+}
+
+.register-btn {
+  background: #39ff14;
+  border: 1px solid #39ff14;
+  color: #000;
+}
+
+.register-btn:hover {
+  background: #32e012;
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+}
+
 /* Chat Window */
 .chat-window {
   flex: 1;
