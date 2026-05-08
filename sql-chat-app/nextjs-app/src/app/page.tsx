@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useSession } from "next-auth/react";
-import AuthPage from "@/components/AuthPage";
-import ChatPage from "@/components/ChatPage";
+import AuthPage from "../components/AuthPage";
+import ChatPage from "../components/ChatPage";
 
 export default function Home() {
   const { data: session, status } = useSession();
