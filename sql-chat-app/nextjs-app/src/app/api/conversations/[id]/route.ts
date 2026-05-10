@@ -5,7 +5,7 @@ import prisma from "../../db";
 
 export async function GET(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function GET(
         }
 
         const userId = (session.user as any).id;
-        const { id } = params;
+        const { id } = await params;
 
         const conversation = await prisma.conversation.findUnique({
             where: { id, userId },
@@ -44,7 +44,7 @@ export async function GET(
 }
 export async function DELETE(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions);
@@ -54,7 +54,7 @@ export async function DELETE(
         }
 
         const userId = (session.user as any).id;
-        const { id } = params;
+        const { id } = await params;
 
         // Ensure the conversation belongs to the user
         const conversation = await prisma.conversation.findUnique({
