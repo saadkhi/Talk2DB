@@ -1,0 +1,5 @@
+{
+    "installCommand": "npm install --prefix sql-chat-app/nextjs-app",
+    "buildCommand": "cd sql-chat-app/nextjs-app && npx prisma generate && next build",
+    "outputDirectory": "sql-chat-app/nextjs-app/.next"
+}
