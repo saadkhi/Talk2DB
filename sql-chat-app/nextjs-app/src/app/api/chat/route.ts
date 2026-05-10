@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]/route";
-import prisma from "../../../lib/db";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import prisma from "../db";
 import { Client } from "@gradio/client";
 
 import path from "path";
