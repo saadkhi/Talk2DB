@@ -1,0 +1,5 @@
+{
+    "outputDirectory": "sql-chat-app/nextjs-app/.next",
+    "installCommand": "npm install",
+    "buildCommand": "npm run build"
+}
