@@ -2,11 +2,19 @@ import { PrismaClient } from '@prisma/client'
 
 const prismaClientSingleton = () => {
     const url = process.env.DATABASE_URL;
-    if (!url) {
-        console.error("DATABASE_URL is not defined. Please check your environment variables.");
-    } else if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) {
-        console.error("DATABASE_URL must start with 'postgresql://' or 'postgres://'. Current value starts with:", url.substring(0, 10));
+    console.log("--- PRISMA DIAGNOSTICS ---");
+    console.log("DATABASE_URL type:", typeof url);
+    console.log("DATABASE_URL defined:", !!url);
+    if (url) {
+        console.log("DATABASE_URL length:", url.length);
+        console.log("DATABASE_URL prefix:", url.substring(0, 20));
+        if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) {
+            console.error("CRITICAL: DATABASE_URL missing correct protocol!");
+        }
+    } else {
+        console.error("CRITICAL: DATABASE_URL is UNDEFINED or EMPTY.");
     }
+    console.log("--------------------------");
     return new PrismaClient()
 }
 
