@@ -1,54 +1,27 @@
 import { NextResponse } from "next/server";
-import prisma from "../../db";
 import bcrypt from "bcryptjs";
+import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
     try {
-        const { username, email, password } = await req.json();
+        const { name, email, password } = await req.json();
+        if (!email || !password) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
-        if (!username || !password) {
-            return NextResponse.json(
-                { error: "Username and password are required" },
-                { status: 400 }
-            );
-        }
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) return NextResponse.json({ error: "Email already registered" }, { status: 409 });
 
-        const existingUser = await prisma.user.findUnique({
-            where: { username },
-        });
-
-        if (existingUser) {
-            return NextResponse.json(
-                { error: "Username already exists" },
-                { status: 400 }
-            );
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
+        const hashed = await bcrypt.hash(password, 12);
         const user = await prisma.user.create({
             data: {
-                username,
+                name,
                 email,
-                password: hashedPassword,
+                password: hashed,
             },
         });
 
-        return NextResponse.json(
-            {
-                user: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                },
-            },
-            { status: 201 }
-        );
+        return NextResponse.json({ id: user.id, email: user.email });
     } catch (error: any) {
         console.error("Registration error:", error);
-        return NextResponse.json(
-            { error: "Internal server error" },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: error.message || "Failed to register user" }, { status: 500 });
     }
 }

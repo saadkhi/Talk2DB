@@ -1,37 +1,73 @@
 "use client";
-
-import React, { useState } from 'react';
+import React, { useEffect } from "react";
 import { useSession } from "next-auth/react";
-import AuthPage from "@/components/AuthPage";
-import ChatPage from "@/components/ChatPage";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const [showAuth, setShowAuth] = useState(false);
+  const router = useRouter();
 
-  if (status === "loading") {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#000000',
-      }}>
-        <div style={{ color: '#39ff14', fontSize: '24px', fontWeight: '700', letterSpacing: '2px' }}>LOADING...</div>
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    } else if (status === "unauthenticated") {
+      router.push("/auth/login");
+    }
+  }, [status, router]);
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#0f1117",
+        fontFamily: "Inter, Roboto, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "16px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "28px",
+            fontWeight: "800",
+            color: "#ffffff",
+            letterSpacing: "1px",
+          }}
+        >
+          Talk<span style={{ color: "#6366f1" }}>2</span>DB
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{
+              width: "16px",
+              height: "16px",
+              border: "2px solid #6366f1",
+              borderTopColor: "transparent",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+          <span style={{ color: "#94a3b8", fontSize: "14px", fontWeight: "600" }}>
+            Initializing Workspace...
+          </span>
+        </div>
       </div>
-    );
-  }
-
-  // If user is authenticated, always show ChatPage
-  if (status === "authenticated") {
-    return <ChatPage />;
-  }
-
-  // For unauthenticated users, show ChatPage by default but allow switching to AuthPage
-  if (showAuth) {
-    return <AuthPage onBack={() => setShowAuth(false)} />;
-  }
-
-  return <ChatPage onRequireAuth={() => setShowAuth(true)} />;
+      <style jsx global>{`
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
+    </div>
+  );
 }
