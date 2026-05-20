@@ -14,6 +14,7 @@ const HF_TOKEN = process.env.HF_TOKEN;
 let systemPromptCache: string | null = null;
 
 async function getSystemPrompt() {
+    
     if (systemPromptCache) return systemPromptCache;
     try {
         const promptPath = path.join(process.cwd(), "src/app/api/chat/system_prompt.txt");
