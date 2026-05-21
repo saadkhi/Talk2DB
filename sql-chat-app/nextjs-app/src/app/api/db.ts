@@ -1,7 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 
 const prismaClientSingleton = () => {
-    const url = process.env.DATABASE_URL;
+    let url = process.env.DATABASE_URL || "";
+    if (url.startsWith('"') && url.endsWith('"')) {
+        url = url.slice(1, -1);
+    }
+    if (url.startsWith("'") && url.endsWith("'")) {
+        url = url.slice(1, -1);
+    }
     console.log("--- PRISMA DIAGNOSTICS ---");
     console.log("DATABASE_URL type:", typeof url);
     console.log("DATABASE_URL defined:", !!url);
@@ -15,7 +21,13 @@ const prismaClientSingleton = () => {
         console.error("CRITICAL: DATABASE_URL is UNDEFINED or EMPTY.");
     }
     console.log("--------------------------");
-    return new PrismaClient()
+    return new PrismaClient({
+        datasources: {
+            db: {
+                url: url || undefined
+            }
+        }
+    })
 }
 
 declare global {
