@@ -32,7 +32,7 @@ export function formatDatabaseError(err: any): FriendlyError {
         return friendly;
     }
 
-    if (code === "ETIMEDOUT" || rawMessage.includes("ETIMEDOUT") || rawMessage.includes("timeout")) {
+    if (code === "ETIMEDOUT" || rawMessage.includes("ETIMEDOUT") || rawMessage.includes("timeout") || rawMessage.includes("timed out")) {
         friendly.friendlyMessage = "Database connection timed out. The server took too long to respond.";
         friendly.suggestion = "Ensure your database server is active and not overloaded, and check that the network latency/connection is stable.";
         return friendly;
@@ -62,15 +62,6 @@ export function formatDatabaseError(err: any): FriendlyError {
     }
 
     // 4. SQL execution errors the user triggers
-    if (code === "42P01" || rawMessage.includes("relation") && rawMessage.includes("does not exist")) {
-        const tableNameMatch = rawMessage.match(/relation "([^"]+)" does not exist/);
-        const tableName = tableNameMatch ? ` "${tableNameMatch[1]}"` : "";
-        friendly.friendlyMessage = `Table${tableName} was not found in the database.`;
-        friendly.friendlyMessage += " This usually happens when the SQL model generates queries on incorrect or non-existent tables.";
-        friendly.suggestion = `Ensure the table exists. Double-check your database structure, or view the columns using the Schema Explorer page to suggest columns correctly.`;
-        return friendly;
-    }
-
     if (code === "42703" || rawMessage.includes("column") && rawMessage.includes("does not exist")) {
         const colNameMatch = rawMessage.match(/column "([^"]+)" of relation "([^"]+)" does not exist/);
         const colExplain = colNameMatch
@@ -78,6 +69,15 @@ export function formatDatabaseError(err: any): FriendlyError {
             : "One of the columns requested in the query does not exist";
         friendly.friendlyMessage = `${colExplain}.`;
         friendly.suggestion = "Verify field and column spellings, check recent DB migrations, or refer to the Schema Explorer tab to verify table metadata fields.";
+        return friendly;
+    }
+
+    if (code === "42P01" || rawMessage.includes("relation") && rawMessage.includes("does not exist")) {
+        const tableNameMatch = rawMessage.match(/relation "([^"]+)" does not exist/);
+        const tableName = tableNameMatch ? ` "${tableNameMatch[1]}"` : "";
+        friendly.friendlyMessage = `Table${tableName} was not found in the database.`;
+        friendly.friendlyMessage += " This usually happens when the SQL model generates queries on incorrect or non-existent tables.";
+        friendly.suggestion = `Ensure the table exists. Double-check your database structure, or view the columns using the Schema Explorer page to suggest columns correctly.`;
         return friendly;
     }
 
