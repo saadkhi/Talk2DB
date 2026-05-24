@@ -1,20 +1,24 @@
-import { PrismaClient } from '@prisma/client'
-
-const prismaClientSingleton = () => {
-    let url = process.env.DATABASE_URL || "";
+if (process.env.DATABASE_URL) {
+    let url = process.env.DATABASE_URL.trim();
     if (url.startsWith('"') && url.endsWith('"')) {
         url = url.slice(1, -1);
     }
     if (url.startsWith("'") && url.endsWith("'")) {
         url = url.slice(1, -1);
     }
+    process.env.DATABASE_URL = url.trim();
+}
+
+import { PrismaClient } from '@prisma/client'
+
+const prismaClientSingleton = () => {
     console.log("--- PRISMA DIAGNOSTICS ---");
-    console.log("DATABASE_URL type:", typeof url);
-    console.log("DATABASE_URL defined:", !!url);
-    if (url) {
-        console.log("DATABASE_URL length:", url.length);
-        console.log("DATABASE_URL prefix:", url.substring(0, 20));
-        if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) {
+    console.log("DATABASE_URL type:", typeof process.env.DATABASE_URL);
+    console.log("DATABASE_URL defined:", !!process.env.DATABASE_URL);
+    if (process.env.DATABASE_URL) {
+        console.log("DATABASE_URL length:", process.env.DATABASE_URL.length);
+        console.log("DATABASE_URL prefix:", process.env.DATABASE_URL.substring(0, 20));
+        if (!process.env.DATABASE_URL.startsWith("postgresql://") && !process.env.DATABASE_URL.startsWith("postgres://")) {
             console.error("CRITICAL: DATABASE_URL missing correct protocol!");
         }
     } else {
@@ -24,7 +28,7 @@ const prismaClientSingleton = () => {
     return new PrismaClient({
         datasources: {
             db: {
-                url: url || undefined
+                url: process.env.DATABASE_URL || undefined
             }
         }
     })

@@ -1,19 +1,22 @@
+if (process.env.DATABASE_URL) {
+    let url = process.env.DATABASE_URL.trim();
+    if (url.startsWith('"') && url.endsWith('"')) {
+        url = url.slice(1, -1);
+    }
+    if (url.startsWith("'") && url.endsWith("'")) {
+        url = url.slice(1, -1);
+    }
+    process.env.DATABASE_URL = url.trim();
+}
+
 import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-let databaseUrl = process.env.DATABASE_URL || "";
-if (databaseUrl.startsWith('"') && databaseUrl.endsWith('"')) {
-    databaseUrl = databaseUrl.slice(1, -1);
-}
-if (databaseUrl.startsWith("'") && databaseUrl.endsWith("'")) {
-    databaseUrl = databaseUrl.slice(1, -1);
-}
-
 export const prisma = globalForPrisma.prisma || new PrismaClient({
     datasources: {
         db: {
-            url: databaseUrl || undefined
+            url: process.env.DATABASE_URL || undefined
         }
     }
 });
