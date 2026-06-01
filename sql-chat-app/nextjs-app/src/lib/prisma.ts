@@ -2,6 +2,14 @@ function sanitizeUrl(url: string | undefined): string | undefined {
     if (!url) return undefined;
     let sanitized = url.trim();
 
+    // Check if it's a psql command like: psql 'postgresql://...'
+    if (sanitized.toLowerCase().startsWith("psql ")) {
+        const matches = sanitized.match(/(?:postgresql|postgres):\/\/[^\s'"]+/i);
+        if (matches) {
+            sanitized = matches[0];
+        }
+    }
+
     // Recursively remove wrapping quotes
     while (
         (sanitized.startsWith('"') && sanitized.endsWith('"')) ||
