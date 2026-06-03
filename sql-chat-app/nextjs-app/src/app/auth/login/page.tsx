@@ -1,9 +1,11 @@
 "use client";
+
 import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import "../../AuthPage.css";
+import SchemaConstellation from "@/components/SchemaConstellation";
+import styles from "../Auth.module.css";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -43,54 +45,61 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="auth-page">
-            <div className="auth-container">
-                <div className="auth-header">
-                    <h1>Talk<span style={{ color: "#39ff14" }}>2</span>DB</h1>
-                    <p>Sign in to your data intelligence workspace</p>
-                </div>
+        <div className={styles.page}>
+            <div className={styles.leftPanel}>
+                <div className={styles.wordmark}>Talk2DB</div>
+                <SchemaConstellation />
+            </div>
 
-                <form onSubmit={handleSubmit} className="auth-form">
-                    {error && <div className="auth-error">{error}</div>}
+            <div className={styles.rightPanel}>
+                <div className={styles.formCard}>
+                    <div className={styles.logoMonogram}>T2</div>
+                    <h1 className={styles.heading}>Sign in to Talk2DB</h1>
+                    <p className={styles.subheading}>Your data, in plain English</p>
 
-                    <div className="form-group">
-                        <label htmlFor="email">Email Address</label>
-                        <input
-                            id="email"
-                            type="email"
-                            placeholder="name@company.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            disabled={loading}
-                            required
-                        />
-                    </div>
+                    <form onSubmit={handleSubmit} className={styles.form}>
+                        {error && <div style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</div>}
 
-                    <div className="form-group">
-                        <label htmlFor="password">Password</label>
-                        <input
-                            id="password"
-                            type="password"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            disabled={loading}
-                            required
-                        />
-                    </div>
+                        <div className={styles.inputGroup}>
+                            <label className={styles.label}>Email Address</label>
+                            <input
+                                type="email"
+                                className={`${styles.input} ${styles.inputMono}`}
+                                placeholder="name@company.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                            />
+                        </div>
 
-                    <button type="submit" className="auth-submit" disabled={loading}>
-                        {loading ? "Signing In..." : "Sign In"}
-                    </button>
-                </form>
+                        <div className={styles.inputGroup}>
+                            <label className={styles.label}>Password</label>
+                            <input
+                                type="password"
+                                className={styles.input}
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                        </div>
 
-                <div className="auth-switch">
-                    <p>
+                        <button type="submit" className={styles.submitBtn} disabled={loading}>
+                            {loading ? "Signing In..." : "Sign In"}
+                            <div className={styles.shimmer}></div>
+                        </button>
+                    </form>
+
+                    <div className={styles.switchLink}>
                         Don't have an account?
-                        <Link href="/auth/register" className="auth-switch-button">
-                            Register
-                        </Link>
-                    </p>
+                        <Link href="/auth/register" className={styles.link}>Register</Link>
+                    </div>
+
+                    <div className={styles.pills}>
+                        <span className={styles.pill}>Natural language → SQL</span>
+                        <span className={styles.pill}>Instant results</span>
+                        <span className={styles.pill}>Chat history</span>
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,9 +1,11 @@
 "use client";
+
 import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import "../../AuthPage.css";
+import SchemaConstellation from "@/components/SchemaConstellation";
+import styles from "../Auth.module.css";
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -24,11 +26,6 @@ export default function RegisterPage() {
             setError("Passwords do not match.");
             return;
         }
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters long.");
-            return;
-        }
-
         setError(null);
         setLoading(true);
 
@@ -47,7 +44,6 @@ export default function RegisterPage() {
                 return;
             }
 
-            // Auto login after successful registration
             const loginRes = await signIn("credentials", {
                 redirect: false,
                 email,
@@ -55,7 +51,6 @@ export default function RegisterPage() {
             });
 
             if (loginRes?.error) {
-                setError("Account created, but automatic sign-in failed. Please login.");
                 router.push("/auth/login");
             } else {
                 router.refresh();
@@ -70,82 +65,80 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="auth-page">
-            <div className="auth-container" style={{ maxWidth: "500px" }}>
-                <div className="auth-header">
-                    <h1>Talk<span style={{ color: "#39ff14" }}>2</span>DB</h1>
-                    <p>Create an account to start analyzing databases</p>
-                </div>
+        <div className={styles.page}>
+            <div className={styles.leftPanel}>
+                <div className={styles.wordmark}>Talk2DB</div>
+                <SchemaConstellation />
+            </div>
 
-                <form onSubmit={handleSubmit} className="auth-form">
-                    {error && <div className="auth-error">{error}</div>}
+            <div className={styles.rightPanel}>
+                <div className={styles.formCard}>
+                    <div className={styles.logoMonogram}>T2</div>
+                    <h1 className={styles.heading}>Create an account</h1>
+                    <p className={styles.subheading}>Your data, in plain English</p>
 
-                    <div className="form-group">
-                        <label htmlFor="name">Full Name</label>
-                        <input
-                            id="name"
-                            type="text"
-                            placeholder="John Doe"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            disabled={loading}
-                            required
-                        />
-                    </div>
+                    <form onSubmit={handleSubmit} className={styles.form}>
+                        {error && <div style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</div>}
 
-                    <div className="form-group">
-                        <label htmlFor="email">Email Address</label>
-                        <input
-                            id="email"
-                            type="email"
-                            placeholder="name@company.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            disabled={loading}
-                            required
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label htmlFor="password">Password</label>
+                        <div className={styles.inputGroup}>
+                            <label className={styles.label}>Full Name</label>
                             <input
-                                id="password"
-                                type="password"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                disabled={loading}
+                                type="text"
+                                className={styles.input}
+                                placeholder="John Doe"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
                                 required
                             />
                         </div>
 
-                        <div className="form-group">
-                            <label htmlFor="confirmPassword">Confirm Password</label>
+                        <div className={styles.inputGroup}>
+                            <label className={styles.label}>Email Address</label>
                             <input
-                                id="confirmPassword"
-                                type="password"
-                                placeholder="••••••••"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                disabled={loading}
+                                type="email"
+                                className={`${styles.input} ${styles.inputMono}`}
+                                placeholder="name@company.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
                         </div>
-                    </div>
 
-                    <button type="submit" className="auth-submit" disabled={loading}>
-                        {loading ? "Creating Account..." : "Create Account"}
-                    </button>
-                </form>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                            <div className={styles.inputGroup}>
+                                <label className={styles.label}>Password</label>
+                                <input
+                                    type="password"
+                                    className={styles.input}
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className={styles.inputGroup}>
+                                <label className={styles.label}>Confirm</label>
+                                <input
+                                    type="password"
+                                    className={styles.input}
+                                    placeholder="••••••••"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
 
-                <div className="auth-switch">
-                    <p>
+                        <button type="submit" className={styles.submitBtn} disabled={loading}>
+                            {loading ? "Creating Account..." : "Register"}
+                            <div className={styles.shimmer}></div>
+                        </button>
+                    </form>
+
+                    <div className={styles.switchLink}>
                         Already have an account?
-                        <Link href="/auth/login" className="auth-switch-button">
-                            Login
-                        </Link>
-                    </p>
+                        <Link href="/auth/login" className={styles.link}>Sign In</Link>
+                    </div>
                 </div>
             </div>
         </div>
