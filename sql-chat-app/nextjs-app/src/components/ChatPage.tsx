@@ -311,7 +311,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ onRequireAuth }) => {
                 onDeleteConversation={deleteConversation}
                 username={user?.username || 'User'}
                 isOpen={sidebarOpen}
-                toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                onToggle={() => setSidebarOpen(!sidebarOpen)}
             />
 
             <main className="main-content">
