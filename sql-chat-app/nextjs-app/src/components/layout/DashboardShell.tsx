@@ -43,7 +43,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     };
 
     return (
-        <div className="flex min-h-screen bg-[#0F1117] text-white overflow-hidden">
+        <div className="flex min-h-screen bg-[var(--bg-base)] text-white overflow-hidden">
             {/* Sidebar component */}
             <Sidebar
                 isCollapsed={isCollapsed}

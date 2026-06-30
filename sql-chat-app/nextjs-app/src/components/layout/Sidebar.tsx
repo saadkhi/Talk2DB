@@ -77,16 +77,16 @@ export default function Sidebar({
     const pathname = usePathname();
 
     const SidebarContent = (
-        <div className="flex flex-col h-full bg-[#1A1D27] border-r border-[#2C3142] py-6 text-white select-none">
+        <div className="flex flex-col h-full bg-[var(--bg-surface)] border-r border-[var(--border)] py-6 text-white select-none">
             {/* Header / Brand */}
             <div className={`px-6 mb-8 flex items-center justify-between ${isCollapsed ? "justify-center px-2" : ""}`}>
                 {!isCollapsed && (
                     <span className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
-                        Talk<span className="text-blue-500">2</span>DB
+                        Talk<span className="text-[var(--accent)]">2</span>DB
                     </span>
                 )}
                 {isCollapsed && (
-                    <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-sm">
+                    <div className="w-9 h-9 rounded-xl bg-[var(--accent-dim)] border border-[var(--accent)]/30 flex items-center justify-center font-bold text-[var(--accent)] text-sm">
                         T2
                     </div>
                 )}
@@ -94,7 +94,7 @@ export default function Sidebar({
                 {/* Desktop Collapse Trigger */}
                 <button
                     onClick={onToggleCollapse}
-                    className="hidden md:flex opacity-60 hover:opacity-100 p-1.5 rounded-lg hover:bg-[#232736]/60 transition-all text-gray-400 hover:text-white"
+                    className="hidden md:flex opacity-60 hover:opacity-100 p-1.5 rounded-lg hover:bg-[var(--accent-dim)] transition-all text-gray-400 hover:text-white"
                     title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
                     <svg
@@ -119,8 +119,8 @@ export default function Sidebar({
                             href={item.href}
                             onClick={onCloseMobile}
                             className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition-all duration-300 group leading-none ${isActive
-                                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
-                                    : "text-[#9CA3AF] hover:bg-[#232736]/40 hover:text-white"
+                                ? "bg-[var(--accent)] text-white shadow-md shadow-[var(--accent)]/15"
+                                : "text-[#9CA3AF] hover:bg-[var(--accent-dim)] hover:text-white"
                                 } ${isCollapsed ? "justify-center px-1" : ""}`}
                             title={isCollapsed ? item.label : ""}
                         >
@@ -136,7 +136,7 @@ export default function Sidebar({
             </nav>
 
             {/* Footer with version */}
-            <div className={`px-6 pt-4 border-t border-[#2C3142]/40 text-center ${isCollapsed ? "px-2" : ""}`}>
+            <div className={`px-6 pt-4 border-t border-[var(--border)]/40 text-center ${isCollapsed ? "px-2" : ""}`}>
                 {!isCollapsed ? (
                     <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest block">
                         Talk2DB v2.0

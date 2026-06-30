@@ -81,9 +81,11 @@ export default function RegisterPage() {
                         {error && <div style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</div>}
 
                         <div className={styles.inputGroup}>
-                            <label className={styles.label}>Full Name</label>
+                            <label htmlFor="reg-name" className={styles.label}>Full Name</label>
                             <input
+                                id="reg-name"
                                 type="text"
+                                autoComplete="name"
                                 className={styles.input}
                                 placeholder="John Doe"
                                 value={name}
@@ -93,9 +95,11 @@ export default function RegisterPage() {
                         </div>
 
                         <div className={styles.inputGroup}>
-                            <label className={styles.label}>Email Address</label>
+                            <label htmlFor="reg-email" className={styles.label}>Email Address</label>
                             <input
+                                id="reg-email"
                                 type="email"
+                                autoComplete="email"
                                 className={`${styles.input} ${styles.inputMono}`}
                                 placeholder="name@company.com"
                                 value={email}
@@ -106,9 +110,11 @@ export default function RegisterPage() {
 
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                             <div className={styles.inputGroup}>
-                                <label className={styles.label}>Password</label>
+                                <label htmlFor="reg-password" className={styles.label}>Password</label>
                                 <input
+                                    id="reg-password"
                                     type="password"
+                                    autoComplete="new-password"
                                     className={styles.input}
                                     placeholder="••••••••"
                                     value={password}
@@ -117,9 +123,11 @@ export default function RegisterPage() {
                                 />
                             </div>
                             <div className={styles.inputGroup}>
-                                <label className={styles.label}>Confirm</label>
+                                <label htmlFor="reg-confirm" className={styles.label}>Confirm</label>
                                 <input
+                                    id="reg-confirm"
                                     type="password"
+                                    autoComplete="new-password"
                                     className={styles.input}
                                     placeholder="••••••••"
                                     value={confirmPassword}

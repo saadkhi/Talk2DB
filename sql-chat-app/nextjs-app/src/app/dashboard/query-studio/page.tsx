@@ -63,7 +63,7 @@ export default function QueryStudioPage() {
                 </p>
             </div>
 
-            <div className="bg-[#1a1d2e] border border-[#2d3154] p-6 rounded-2xl space-y-4 shadow-xl">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-6 rounded-2xl space-y-4 shadow-xl">
                 <form onSubmit={(e) => handleRunQuery(e)} className="space-y-4">
                     <div className="flex flex-col gap-2">
                         <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
@@ -74,7 +74,7 @@ export default function QueryStudioPage() {
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
                             disabled={loading}
-                            className="bg-[#0f1117] border border-[#2d3154] text-white p-4 rounded-xl text-sm w-full min-h-[100px] focus:outline-none focus:border-indigo-500 transition-all font-sans leading-relaxed"
+                            className="bg-[var(--bg-base)] border border-[var(--border)] text-white p-4 rounded-xl text-sm w-full min-h-[100px] focus:outline-none focus:border-[var(--accent)] transition-all font-sans leading-relaxed"
                             required
                         />
                     </div>
@@ -91,7 +91,7 @@ export default function QueryStudioPage() {
                                         handleRunQuery(undefined, ex);
                                     }}
                                     disabled={loading}
-                                    className="text-xs px-2.5 py-1 rounded bg-[#242840] text-gray-300 hover:text-white border border-[#2d3154] hover:border-indigo-500 transition-all whitespace-nowrap"
+                                    className="text-xs px-2.5 py-1 rounded bg-[var(--accent-dim)]/50 text-gray-300 hover:text-white border border-[var(--border)] hover:border-[var(--accent)] transition-all whitespace-nowrap"
                                 >
                                     {ex.length > 35 ? ex.slice(0, 35) + "..." : ex}
                                 </button>
@@ -101,7 +101,7 @@ export default function QueryStudioPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-all shadow-lg hover:shadow-indigo-500/20"
+                            className="px-6 py-2.5 bg-[var(--accent)] hover:brightness-110 disabled:opacity-50 text-white font-semibold rounded-xl text-sm transition-all shadow-lg hover:shadow-[var(--accent)]/20"
                         >
                             {loading ? "Translating & Running..." : "Execute Query"}
                         </button>
@@ -117,8 +117,8 @@ export default function QueryStudioPage() {
             )}
 
             {sql && (
-                <div className="bg-[#1a1d2e] border border-[#2d3154] rounded-2xl p-5 space-y-3">
-                    <div className="flex justify-between items-center border-b border-[#2d3154] pb-3">
+                <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 space-y-3">
+                    <div className="flex justify-between items-center border-b border-[var(--border)] pb-3">
                         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
                             Generated SQL Query
                         </span>
@@ -127,20 +127,20 @@ export default function QueryStudioPage() {
                                 navigator.clipboard.writeText(sql);
                                 alert("SQL copied to clipboard!");
                             }}
-                            className="text-xs px-2 py-1 rounded bg-indigo-950 text-indigo-400 hover:text-white border border-indigo-900 transition-all"
+                            className="text-xs px-2 py-1 rounded bg-[var(--accent-dim)] text-[var(--accent-secondary)] hover:text-white border border-[var(--border)] transition-all"
                         >
                             Copy SQL
                         </button>
                     </div>
-                    <pre className="p-4 bg-[#0f1117] rounded-xl text-indigo-300 font-mono text-xs overflow-x-auto border border-[#2d3154] whitespace-pre-wrap leading-relaxed">
+                    <pre className="p-4 bg-[var(--bg-base)] rounded-xl text-indigo-300 font-mono text-xs overflow-x-auto border border-[var(--border)] whitespace-pre-wrap leading-relaxed">
                         {sql}
                     </pre>
                 </div>
             )}
 
             {rows.length > 0 && (
-                <div className="bg-[#1a1d2e] border border-[#2d3154] rounded-2xl p-6 shadow-xl space-y-4">
-                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-widest border-b border-[#2d3154] pb-3">
+                <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-6 shadow-xl space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-widest border-b border-[var(--border)] pb-3">
                         Compilation Results Dataset
                     </h3>
                     <DataTable columns={columns} rows={rows} pageSize={15} />

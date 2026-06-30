@@ -61,9 +61,11 @@ export default function LoginPage() {
                         {error && <div style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</div>}
 
                         <div className={styles.inputGroup}>
-                            <label className={styles.label}>Email Address</label>
+                            <label htmlFor="login-email" className={styles.label}>Email Address</label>
                             <input
+                                id="login-email"
                                 type="email"
+                                autoComplete="email"
                                 className={`${styles.input} ${styles.inputMono}`}
                                 placeholder="name@company.com"
                                 value={email}
@@ -73,9 +75,11 @@ export default function LoginPage() {
                         </div>
 
                         <div className={styles.inputGroup}>
-                            <label className={styles.label}>Password</label>
+                            <label htmlFor="login-password" className={styles.label}>Password</label>
                             <input
+                                id="login-password"
                                 type="password"
+                                autoComplete="current-password"
                                 className={styles.input}
                                 placeholder="••••••••"
                                 value={password}

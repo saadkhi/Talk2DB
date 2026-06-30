@@ -74,13 +74,13 @@ export default function DashboardHome() {
     return (
         <div className="w-full space-y-10 py-2">
             {/* Hero welcome header */}
-            <div className="bg-[#1A1D27] border border-[#2C3142]/85 rounded-3xl p-8 md:p-10 relative overflow-hidden shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-8 md:p-10 relative overflow-hidden shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 {/* Visual gradient background blob */}
-                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+                <div className="absolute top-0 right-0 w-80 h-80 bg-[var(--accent)]/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
 
                 <div className="space-y-3 max-w-xl relative">
                     <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight">
-                        Welcome, <span className="text-blue-500 font-black">{username}</span>
+                        Welcome, <span className="text-[var(--accent)] font-black">{username}</span>
                     </h1>
                     <p className="text-sm text-[#9CA3AF] leading-relaxed font-normal">
                         Talk2DB is your direct natural language gateway to relational databases. Ask questions, construct visual graphs, verify table profiles, and generate executive summaries with full AI translation.
@@ -94,7 +94,7 @@ export default function DashboardHome() {
                     ) : dbConnected ? (
                         <a
                             href="/dashboard/query-studio"
-                            className="inline-flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-550 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 active:translate-y-0.5 select-none"
+                            className="inline-flex items-center gap-2 px-5 py-3 bg-[var(--accent)] hover:brightness-110 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[var(--accent)]/20 active:translate-y-0.5 select-none"
                         >
                             Open Query Studio
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -119,7 +119,7 @@ export default function DashboardHome() {
             {!loading && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Database status card */}
-                    <div className="bg-[#1A1D27] border border-[#2C3142]/85 p-5 rounded-2xl flex flex-col justify-center">
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-5 rounded-2xl flex flex-col justify-center">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Connection Status</span>
                         <div className="flex items-center gap-2">
                             <span
@@ -136,7 +136,7 @@ export default function DashboardHome() {
                     </div>
 
                     {/* Tables count card */}
-                    <div className="bg-[#1A1D27] border border-[#2C3142]/85 p-5 rounded-2xl flex flex-col justify-center">
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-5 rounded-2xl flex flex-col justify-center">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Tables Indexed</span>
                         <span className="text-xl font-extrabold text-white leading-none">
                             {dbConnected ? "12 Tables" : "—"}
@@ -144,7 +144,7 @@ export default function DashboardHome() {
                     </div>
 
                     {/* Last query status card */}
-                    <div className="bg-[#1A1D27] border border-[#2C3142]/85 p-5 rounded-2xl flex flex-col justify-center">
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-5 rounded-2xl flex flex-col justify-center">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Query Engine Latency</span>
                         <span className="text-sm font-bold text-white leading-none">
                             {dbConnected ? "42ms (Avg)" : "—"}
@@ -152,7 +152,7 @@ export default function DashboardHome() {
                     </div>
 
                     {/* Active DBMS card */}
-                    <div className="bg-[#1A1D27] border border-[#2C3142]/85 p-5 rounded-2xl flex flex-col justify-center">
+                    <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-5 rounded-2xl flex flex-col justify-center">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">DBMS Dialect</span>
                         <span className="text-sm font-bold text-white leading-none font-mono">
                             {dbConnected ? "PostgreSQL 15+" : "—"}
