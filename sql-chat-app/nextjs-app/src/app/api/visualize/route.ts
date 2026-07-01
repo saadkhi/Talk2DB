@@ -6,8 +6,31 @@ import { callOpenRouter } from "@/lib/openrouter";
 import { executeQuery } from "@/lib/dbConnection";
 import { extractSQL, isSQLSafe } from "@/lib/sqlSafety";
 import { getSchema } from "../schema/route";
+import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
+    // Rate limiting
+    const identifier = getIdentifier(req);
+    const rateLimitResult = rateLimit(identifier, RATE_LIMITS.visualize.limit, RATE_LIMITS.visualize.windowMs);
+    
+    if (!rateLimitResult.success) {
+        return NextResponse.json(
+            { 
+                error: "Rate limit exceeded", 
+                limit: rateLimitResult.limit,
+                resetTime: rateLimitResult.resetTime 
+            },
+            { 
+                status: 429,
+                headers: {
+                    'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                    'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                    'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+                }
+            }
+        );
+    }
+
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
@@ -38,7 +61,9 @@ export async function POST(req: Request) {
                 )
                 .join("\n\n");
         } catch (e) {
-            console.warn("Schema context fetch failed for visualize config:", e);
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn("Schema context fetch failed for visualize config:", e);
+            }
         }
 
         const chartPrompt = `User request: "${prompt}"
@@ -65,7 +90,9 @@ export async function POST(req: Request) {
             const cleanJSON = raw.replace(/```json|```/gi, "").trim();
             chartConfig = JSON.parse(cleanJSON);
         } catch (e: any) {
-            console.error("OpenRouter chart config extraction failed:", e);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error("OpenRouter chart config extraction failed:", e);
+            }
             return NextResponse.json(
                 { error: `Visualization config parsing failed: ${e.message || "Invalid AI output format"}` },
                 { status: 500 }
@@ -108,7 +135,9 @@ export async function POST(req: Request) {
             );
         }
     } catch (error: any) {
-        console.error("Data Visualizer configuration helper error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Data Visualizer configuration helper error:", error);
+        }
         return NextResponse.json({ error: error.message || "Critical error building visualization chart" }, { status: 500 });
     }
 }

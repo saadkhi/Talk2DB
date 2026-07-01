@@ -21,7 +21,9 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ id: user.id, email: user.email });
     } catch (error: any) {
-        console.error("Registration error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Registration error:", error);
+        }
         return NextResponse.json({ error: error.message || "Failed to register user" }, { status: 500 });
     }
 }

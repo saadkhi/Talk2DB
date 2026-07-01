@@ -7,8 +7,31 @@ import { callOpenRouter } from "@/lib/openrouter";
 import { executeQuery } from "@/lib/dbConnection";
 import { extractSQL, isSQLSafe } from "@/lib/sqlSafety";
 import { getSchema } from "../schema/route";
+import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
+    // Rate limiting
+    const identifier = getIdentifier(req);
+    const rateLimitResult = rateLimit(identifier, RATE_LIMITS.report.limit, RATE_LIMITS.report.windowMs);
+    
+    if (!rateLimitResult.success) {
+        return NextResponse.json(
+            { 
+                error: "Rate limit exceeded", 
+                limit: rateLimitResult.limit,
+                resetTime: rateLimitResult.resetTime 
+            },
+            { 
+                status: 429,
+                headers: {
+                    'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                    'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                    'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+                }
+            }
+        );
+    }
+
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
@@ -38,7 +61,9 @@ export async function POST(req: Request) {
                 )
                 .join("\n\n");
         } catch (e) {
-            console.warn("Report schema context helper failed:", e);
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn("Report schema context helper failed:", e);
+            }
         }
 
         // Step 1: Get SQL from fine-tuned model or OpenRouter fallback
@@ -99,7 +124,9 @@ export async function POST(req: Request) {
                 title: parsedConfig.title || prompt,
             };
         } catch (e) {
-            console.warn("Fallback to basic chart config due to parsing failure:", e);
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn("Fallback to basic chart config due to parsing failure:", e);
+            }
         }
 
         return NextResponse.json({
@@ -109,7 +136,9 @@ export async function POST(req: Request) {
             chartConfig,
         });
     } catch (error: any) {
-        console.error("Report data compiler API error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Report data compiler API error:", error);
+        }
         return NextResponse.json({ error: error.message || "Failed compiled report datasets" }, { status: 500 });
     }
 }

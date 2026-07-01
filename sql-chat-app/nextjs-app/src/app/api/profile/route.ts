@@ -70,7 +70,9 @@ export async function POST(req: Request) {
                             avg: numResult.rows[0].avg != null ? Number(numResult.rows[0].avg) : null,
                         };
                     } catch (eNum) {
-                        console.warn(`Numeric profiling statistical calculation failed for ${column_name}:`, eNum);
+                        if (process.env.NODE_ENV !== 'production') {
+                            console.warn(`Numeric profiling statistical calculation failed for ${column_name}:`, eNum);
+                        }
                     }
                 }
 
@@ -136,7 +138,9 @@ export async function POST(req: Request) {
             columns,
         });
     } catch (error: any) {
-        console.error("Table Profiler compilation error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Table Profiler compilation error:", error);
+        }
         return NextResponse.json({ error: error.message || "Failed compiler data profiles" }, { status: 500 });
     }
 }

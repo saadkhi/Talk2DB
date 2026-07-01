@@ -28,10 +28,13 @@ const sanitizedUrl = sanitizeUrl(rawUrl);
 if (sanitizedUrl) {
     // Basic validation
     if (!sanitizedUrl.startsWith("postgresql://") && !sanitizedUrl.startsWith("postgres://")) {
-        console.error("CRITICAL: DATABASE_URL does not start with a valid protocol (postgresql:// or postgres://).");
-        // Mask the URL for safer logging
-        const masked = sanitizedUrl.replace(/:[^:@]+@/, ":****@");
-        console.error(`Malformed URL detected: "${masked.substring(0, 20)}..."`);
+        // In production, use proper logging service instead of console.error
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("CRITICAL: DATABASE_URL does not start with a valid protocol (postgresql:// or postgres://).");
+            const masked = sanitizedUrl.replace(/:[^:@]+@/, ":****@");
+            console.error(`Malformed URL detected: "${masked.substring(0, 20)}..."`);
+        }
+        throw new Error("Invalid DATABASE_URL: must start with postgresql:// or postgres://");
     }
     process.env.DATABASE_URL = sanitizedUrl;
 }

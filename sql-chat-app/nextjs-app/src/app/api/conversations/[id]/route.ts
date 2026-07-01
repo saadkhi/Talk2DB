@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import prisma from "../../db";
+import prisma from "@/lib/prisma";
 
 export async function GET(
     req: Request,
@@ -35,7 +35,9 @@ export async function GET(
 
         return NextResponse.json(conversation);
     } catch (error) {
-        console.error("Fetch conversation detail error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Fetch conversation detail error:", error);
+        }
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }
@@ -74,7 +76,9 @@ export async function DELETE(
 
         return NextResponse.json({ message: "Conversation deleted" });
     } catch (error) {
-        console.error("Delete conversation error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Delete conversation error:", error);
+        }
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

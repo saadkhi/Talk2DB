@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import prisma from "../db";
+import prisma from "@/lib/prisma";
 
 export async function GET() {
     try {
@@ -20,7 +20,9 @@ export async function GET() {
 
         return NextResponse.json(conversations);
     } catch (error) {
-        console.error("Fetch conversations error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Fetch conversations error:", error);
+        }
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

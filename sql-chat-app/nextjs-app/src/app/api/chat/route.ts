@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import prisma from "../db";
+import prisma from "@/lib/prisma";
 import { Client } from "@gradio/client";
+import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 
 import path from "path";
 import fs from "fs/promises";
@@ -21,7 +22,9 @@ async function getSystemPrompt() {
         systemPromptCache = await fs.readFile(promptPath, "utf-8");
         return systemPromptCache;
     } catch (error) {
-        console.error("Failed to read system prompt:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Failed to read system prompt:", error);
+        }
         return "";
     }
 }
@@ -40,7 +43,9 @@ async function getGradioClient() {
         }
         return gradioClient;
     } catch (error) {
-        console.error("Failed to connect to Gradio:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Failed to connect to Gradio:", error);
+        }
         throw error;
     }
 }
@@ -67,6 +72,28 @@ ${intro}
 }
 
 export async function POST(req: Request) {
+    // Rate limiting
+    const identifier = getIdentifier(req);
+    const rateLimitResult = rateLimit(identifier, RATE_LIMITS.chat.limit, RATE_LIMITS.chat.windowMs);
+    
+    if (!rateLimitResult.success) {
+        return NextResponse.json(
+            { 
+                error: "Rate limit exceeded", 
+                limit: rateLimitResult.limit,
+                resetTime: rateLimitResult.resetTime 
+            },
+            { 
+                status: 429,
+                headers: {
+                    'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                    'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                    'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+                }
+            }
+        );
+    }
+
     try {
         const contentType = req.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
@@ -100,29 +127,14 @@ export async function POST(req: Request) {
 
         const session = await getServerSession(authOptions);
 
-        // Handle guest user
+        // Require authentication - guest mode removed for security
         if (!session?.user) {
-            try {
-                const client = await getGradioClient();
-                const result = await client.predict("/generate_sql", {
-                    user_input: fullPrompt,
-                });
-                const responseText = String(result.data).trim();
-                return NextResponse.json({
-                    response: responseText,
-                    guest: true,
-                });
-            } catch (genErr) {
-                console.error("Gradio model call failed, falling back:", genErr);
-                const responseText = generateFallbackResponse(userMessage);
-                return NextResponse.json({
-                    response: responseText,
-                    guest: true,
-                });
-            }
+            return NextResponse.json(
+                { error: "Authentication required. Please sign in to use the chat feature." },
+                { status: 401 }
+            );
         }
 
-        // Authenticated user
         const userId = (session.user as any).id;
         let conversation;
 
@@ -162,7 +174,9 @@ export async function POST(req: Request) {
             });
             responseText = String(result.data).trim();
         } catch (genErr) {
-            console.error("Gradio model call failed, falling back:", genErr);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error("Gradio model call failed, falling back:", genErr);
+            }
             responseText = generateFallbackResponse(userMessage);
         }
 
@@ -187,7 +201,9 @@ export async function POST(req: Request) {
             title: conversation.title,
         });
     } catch (error: any) {
-        console.error("Chat error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Chat error:", error);
+        }
         return NextResponse.json(
             { error: "An error occurred while generating the response" },
             { status: 500 }

@@ -8,8 +8,31 @@ import { executeQuery } from "@/lib/dbConnection";
 import { isSQLSafe, extractSQL } from "@/lib/sqlSafety";
 import { getSchema } from "../schema/route";
 import { formatDatabaseError } from "@/lib/errorFormatter";
+import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
+    // Rate limiting
+    const identifier = getIdentifier(req);
+    const rateLimitResult = rateLimit(identifier, RATE_LIMITS.query.limit, RATE_LIMITS.query.windowMs);
+    
+    if (!rateLimitResult.success) {
+        return NextResponse.json(
+            { 
+                error: "Rate limit exceeded", 
+                limit: rateLimitResult.limit,
+                resetTime: rateLimitResult.resetTime 
+            },
+            { 
+                status: 429,
+                headers: {
+                    'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                    'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                    'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+                }
+            }
+        );
+    }
+
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
@@ -44,7 +67,9 @@ export async function POST(req: Request) {
                 )
                 .join("\n\n");
         } catch (e) {
-            console.warn("Could not load schema context, generating SQL without it:", e);
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn("Could not load schema context, generating SQL without it:", e);
+            }
         }
 
         const systemPromptMessage = `You are a high-performance PostgreSQL query compiler. Given a user request and database schema context, translate the request into a single syntactically correct PostgreSQL SELECT query.
@@ -59,7 +84,9 @@ Return ONLY raw SQL query text. Do NOT wrap it in markdown code blocks, do NOT w
         try {
             rawSQL = await generateSQL(userMessageContent);
         } catch (gradioError) {
-            console.warn("Gradio fine-tuned SQL model failed, falling back to OpenRouter:", gradioError);
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn("Gradio fine-tuned SQL model failed, falling back to OpenRouter:", gradioError);
+            }
             rawSQL = await callOpenRouter(systemPromptMessage, userMessageContent);
         }
 
@@ -76,7 +103,9 @@ Return ONLY raw SQL query text. Do NOT wrap it in markdown code blocks, do NOT w
             const { columns, rows } = await executeQuery(user.dbConnectionString, safeSql);
             return NextResponse.json({ sql: safeSql, columns, rows });
         } catch (dbError: any) {
-            console.error("Query Studio connection or execution failed:", dbError);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error("Query Studio connection or execution failed:", dbError);
+            }
             const friendly = formatDatabaseError(dbError);
             return NextResponse.json(
                 {
@@ -89,7 +118,9 @@ Return ONLY raw SQL query text. Do NOT wrap it in markdown code blocks, do NOT w
             );
         }
     } catch (error: any) {
-        console.error("Query Studio compiler route error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Query Studio compiler route error:", error);
+        }
         return NextResponse.json({ error: error.message || "Failed to catalog query results" }, { status: 500 });
     }
 }

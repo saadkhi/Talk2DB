@@ -40,7 +40,9 @@ export async function GET(req: Request) {
             dbDialect: user.dbDialect,
         });
     } catch (error: any) {
-        console.error("Profile fetch error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Profile fetch error:", error);
+        }
         return NextResponse.json({ error: error.message || "Failed to fetch profile" }, { status: 500 });
     }
 }

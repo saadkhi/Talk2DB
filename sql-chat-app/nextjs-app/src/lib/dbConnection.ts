@@ -12,6 +12,7 @@ export async function getUserDbPool(encryptedConnectionString: string): Promise<
         max: 3,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
+        statement_timeout: 30000, // 30 second query timeout
     });
     poolCache.set(connectionString, pool);
     return pool;

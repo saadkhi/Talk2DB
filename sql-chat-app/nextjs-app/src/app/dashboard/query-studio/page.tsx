@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import DataTable from "@/components/data/DataTable";
+import { Toast, useToast } from "@/components/Toast";
 
 const EXAMPLES = [
     "Show the top 10 most recent users",
@@ -16,6 +17,7 @@ export default function QueryStudioPage() {
     const [columns, setColumns] = useState<string[]>([]);
     const [rows, setRows] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const { toast, showToast } = useToast();
 
     const handleRunQuery = async (e?: React.FormEvent, customPrompt?: string) => {
         if (e) e.preventDefault();
@@ -125,7 +127,7 @@ export default function QueryStudioPage() {
                         <button
                             onClick={() => {
                                 navigator.clipboard.writeText(sql);
-                                alert("SQL copied to clipboard!");
+                                showToast("SQL copied to clipboard!");
                             }}
                             className="text-xs px-2 py-1 rounded bg-[var(--accent-dim)] text-[var(--accent-secondary)] hover:text-white border border-[var(--border)] transition-all"
                         >
@@ -146,6 +148,8 @@ export default function QueryStudioPage() {
                     <DataTable columns={columns} rows={rows} pageSize={15} />
                 </div>
             )}
+            
+            {toast && <Toast message={toast.message} />}
         </div>
     );
 }

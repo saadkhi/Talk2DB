@@ -4,16 +4,19 @@ const ALGORITHM = "aes-256-cbc";
 
 function getKey(): Buffer {
     const envKey = process.env.DB_ENCRYPTION_KEY;
-    if (envKey) {
-        try {
-            return Buffer.from(envKey, "hex");
-        } catch (e) {
-            console.warn("Invalid DB_ENCRYPTION_KEY hex format, falling back to hashed secret.");
-        }
+    if (!envKey) {
+        throw new Error("DB_ENCRYPTION_KEY environment variable is required for database connection string encryption");
     }
-    // Fallback to hashing NEXTAUTH_SECRET to guarantee exactly 32 bytes and prevent app crashes
-    const secret = process.env.NEXTAUTH_SECRET || "talk2db-session-auth-default-encryption-secret-string";
-    return crypto.createHash("sha256").update(secret).digest();
+    
+    try {
+        const key = Buffer.from(envKey, "hex");
+        if (key.length !== 32) {
+            throw new Error("DB_ENCRYPTION_KEY must be a 32-byte hex string (64 hex characters)");
+        }
+        return key;
+    } catch (e) {
+        throw new Error("Invalid DB_ENCRYPTION_KEY format: must be a 32-byte hex string");
+    }
 }
 
 export function encrypt(text: string): string {

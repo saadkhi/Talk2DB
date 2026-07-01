@@ -60,7 +60,9 @@ export async function GET(req: Request) {
         const schema = await getSchema(user.dbConnectionString);
         return NextResponse.json(schema);
     } catch (error: any) {
-        console.error("Schema introspection API error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Schema introspection API error:", error);
+        }
         return NextResponse.json({ error: error.message || "Failed to introspect SQL schema" }, { status: 500 });
     }
 }

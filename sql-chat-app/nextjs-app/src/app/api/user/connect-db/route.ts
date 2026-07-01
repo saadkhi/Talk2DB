@@ -5,8 +5,31 @@ import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
 import { Pool } from "pg";
 import { formatDatabaseError } from "@/lib/errorFormatter";
+import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
+    // Rate limiting
+    const identifier = getIdentifier(req);
+    const rateLimitResult = rateLimit(identifier, RATE_LIMITS.connectDb.limit, RATE_LIMITS.connectDb.windowMs);
+    
+    if (!rateLimitResult.success) {
+        return NextResponse.json(
+            { 
+                error: "Rate limit exceeded", 
+                limit: rateLimitResult.limit,
+                resetTime: rateLimitResult.resetTime 
+            },
+            { 
+                status: 429,
+                headers: {
+                    'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                    'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                    'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+                }
+            }
+        );
+    }
+
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
@@ -28,7 +51,9 @@ export async function POST(req: Request) {
             await testPool.query("SELECT 1");
             await testPool.end();
         } catch (e: any) {
-            console.error("DB Test connection failed:", e);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error("DB Test connection failed:", e);
+            }
             const friendly = formatDatabaseError(e);
             return NextResponse.json(
                 {
@@ -56,7 +81,9 @@ export async function POST(req: Request) {
             message: "Database connected successfully",
         });
     } catch (error: any) {
-        console.error("Database connection endpoint error:", error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Database connection endpoint error:", error);
+        }
         return NextResponse.json({ error: error.message || "Failed to verify database connection" }, { status: 500 });
     }
 }
