@@ -4,21 +4,24 @@
   --bg-surface: rgba(14, 15, 20, 0.6);
   --bg-elevated: rgba(22, 24, 32, 0.7);
   --border: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(99, 102, 241, 0.4); /* Indigo focus */
+  --border-focus: rgba(99, 102, 241, 0.4);
+  /* Indigo focus */
   --border-default: rgba(255, 255, 255, 0.05);
-  
+
   --text-primary: #FAFAFB;
   --text-secondary: #A1A1AA;
   --text-tertiary: #71717A;
   --text-muted: #52525B;
-  
+
   /* Accents */
-  --accent: #6366f1; /* Vibrant Indigo */
+  --accent: #6366f1;
+  /* Vibrant Indigo */
   --accent-dim: rgba(99, 102, 241, 0.1);
   --accent-primary: #6366f1;
-  --accent-secondary: #06b6d4; /* Vibrant Cyan */
+  --accent-secondary: #06b6d4;
+  /* Vibrant Cyan */
   --accent-secondary-dim: rgba(6, 182, 212, 0.1);
-  
+
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
@@ -66,13 +69,19 @@ body::before {
   width: 100vw;
   height: 100vh;
   z-index: -1;
-  background: 
+  background:
     radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%),
     radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.06), transparent 25%);
   pointer-events: none;
 }
 
-h1, h2, h3, h4, h5, h6, .ui-label {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.ui-label {
   font-family: var(--font-ui);
   letter-spacing: -0.02em;
 }
@@ -90,7 +99,8 @@ button {
   outline: none;
 }
 
-input, textarea {
+input,
+textarea {
   font-family: inherit;
 }
 
@@ -99,13 +109,16 @@ input, textarea {
   width: 4px;
   height: 4px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
@@ -118,33 +131,74 @@ input, textarea {
 
 /* Animations */
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideInRight {
-  from { opacity: 0; transform: translateX(16px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
 
-.animate-slide-up { animation: slideUp var(--transition-bounce) forwards; }
-.animate-fade-in { animation: fadeIn var(--transition-smooth) forwards; }
-.animate-slide-right { animation: slideInRight var(--transition-bounce) forwards; }
+.animate-slide-up {
+  animation: slideUp var(--transition-bounce) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--transition-smooth) forwards;
+}
+
+.animate-slide-right {
+  animation: slideInRight var(--transition-bounce) forwards;
+}
 
 .glass-panel {
   background: var(--bg-surface);
@@ -186,6 +240,7 @@ input, textarea {
   position: relative;
   overflow: hidden;
 }
+
 .shimmer-effect::after {
   content: "";
   position: absolute;
@@ -193,7 +248,7 @@ input, textarea {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
   animation: shimmer 2s infinite;
 }
 
@@ -271,13 +326,27 @@ input, textarea {
   color: var(--text-secondary);
   transition: all var(--transition-fast);
 }
+
 .status-pill:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.status-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
-.status-pill .dot.ok { background: var(--success); box-shadow: 0 0 10px var(--success); }
-.status-pill .dot.warning { background: var(--warning); box-shadow: 0 0 10px var(--warning); animation: pulse 2s infinite alternate; }
+.status-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-pill .dot.ok {
+  background: var(--success);
+  box-shadow: 0 0 10px var(--success);
+}
+
+.status-pill .dot.warning {
+  background: var(--warning);
+  box-shadow: 0 0 10px var(--warning);
+  animation: pulse 2s infinite alternate;
+}
 
 .chat-window {
   flex: 1;
@@ -336,8 +405,14 @@ input, textarea {
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
-.message.user .message-role { color: var(--accent); }
-.message.assistant .message-role { color: var(--accent-secondary); }
+
+.message.user .message-role {
+  color: var(--accent);
+}
+
+.message.assistant .message-role {
+  color: var(--accent-secondary);
+}
 
 .message-content {
   font-size: 15px;
@@ -345,6 +420,7 @@ input, textarea {
   color: var(--text-primary);
   word-wrap: break-word;
 }
+
 .message-content pre {
   margin: 12px 0;
   border-radius: 12px;
@@ -403,6 +479,7 @@ input, textarea {
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
 }
+
 .input-row button:active:not(:disabled) {
   transform: translateY(0) scale(0.95);
 }
@@ -414,24 +491,52 @@ input, textarea {
 }
 
 /* Auth Buttons */
-.logout-btn, .login-btn, .register-btn {
+.logout-btn,
+.login-btn,
+.register-btn {
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
   border-radius: 10px;
   transition: all var(--transition-bounce);
 }
-.logout-btn { border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-secondary); }
-.logout-btn:hover { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: var(--danger); transform: scale(1.05); }
 
-.login-btn { color: var(--text-secondary); }
-.login-btn:hover { color: white; background: rgba(255, 255, 255, 0.05); }
+.logout-btn {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+}
 
-.register-btn { background: var(--text-primary); color: #000; font-weight: 600; }
-.register-btn:hover { background: #fff; transform: translateY(-1px) scale(1.05); box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15); }
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--danger);
+  transform: scale(1.05);
+}
+
+.login-btn {
+  color: var(--text-secondary);
+}
+
+.login-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.register-btn {
+  background: var(--text-primary);
+  color: #000;
+  font-weight: 600;
+}
+
+.register-btn:hover {
+  background: #fff;
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15);
+}
 
 /* Quick Utils */
-.copy-btn, .edit-btn {
+.copy-btn,
+.edit-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -445,9 +550,94 @@ input, textarea {
   transition: all var(--transition-bounce);
 }
 
-.copy-btn:hover, .edit-btn:hover {
+.copy-btn:hover,
+.edit-btn:hover {
   color: white;
   border-color: rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.08);
   transform: translateY(-2px);
+}
+
+/* =========================================================================
+   Quick Tailwind Polyfills for SVG Icons
+   ========================================================================= */
+.w-6 {
+  width: 24px;
+}
+
+.h-6 {
+  height: 24px;
+}
+
+.w-5\.5 {
+  width: 22px;
+}
+
+.h-5\.5 {
+  height: 22px;
+}
+
+.w-5 {
+  width: 20px;
+}
+
+.h-5 {
+  height: 20px;
+}
+
+.w-4\.5 {
+  width: 18px;
+}
+
+.h-4\.5 {
+  height: 18px;
+}
+
+.w-4 {
+  width: 16px;
+}
+
+.h-4 {
+  height: 16px;
+}
+
+.w-3\.5 {
+  width: 14px;
+}
+
+.h-3\.5 {
+  height: 14px;
+}
+
+.w-3 {
+  width: 12px;
+}
+
+.h-3 {
+  height: 12px;
+}
+
+.shrink-0 {
+  flex-shrink: 0;
+}
+
+.text-red-500 {
+  color: #ef4444;
+}
+
+.text-red-400 {
+  color: #f87171;
+}
+
+.text-emerald-400 {
+  color: #34d399;
+}
+
+.mt-0\.5 {
+  margin-top: 2px;
+}
+
+svg {
+  /* Prevent generic SVGs from blowing up if they lack width/height */
+  max-width: 100%;
 }
