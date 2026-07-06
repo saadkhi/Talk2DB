@@ -1,112 +1,132 @@
 .panel {
-    width: 320px;
+    width: 340px;
     height: 100vh;
-    background: var(--bg-surface);
-    border-left: 1px solid var(--border);
+    background: rgba(14, 15, 20, 0.3);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-left: 1px solid rgba(255, 255, 255, 0.04);
     display: flex;
     flex-direction: column;
-    transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width var(--transition-bounce), transform var(--transition-bounce), opacity var(--transition-smooth);
     overflow: hidden;
+    position: relative;
+    z-index: 50;
 }
 
 .panelCollapsed {
     width: 0;
     border-left: none;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .header {
-    padding: 16px;
+    padding: 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .title {
     font-family: var(--font-ui);
-    font-weight: 500;
-    font-size: 14px;
+    font-weight: 600;
+    font-size: 15px;
     color: var(--text-primary);
+    letter-spacing: -0.02em;
 }
 
 .closeBtn {
     color: var(--text-tertiary);
-    padding: 4px;
-    border-radius: 4px;
-    transition: color 200ms;
+    padding: 6px;
+    border-radius: 8px;
+    transition: all var(--transition-bounce);
 }
 
 .closeBtn:hover {
     color: var(--text-primary);
-    background: var(--bg-elevated);
+    background: rgba(255, 255, 255, 0.08);
+    transform: scale(1.1) rotate(90deg);
 }
 
 .content {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    padding: 24px;
 }
 
 .section {
-    margin-bottom: 24px;
+    margin-bottom: 32px;
 }
 
 .sectionLabel {
     font-size: 11px;
-    font-weight: 600;
-    color: var(--text-tertiary);
+    font-weight: 700;
+    color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 12px;
+    letter-spacing: 0.15em;
+    margin-bottom: 16px;
 }
 
 .historyItem {
-    padding: 12px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
     margin-bottom: 8px;
     cursor: pointer;
-    transition: border-color 200ms;
+    transition: all var(--transition-bounce);
+    position: relative;
 }
 
 .historyItem:hover {
-    border-color: var(--border-focus);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateX(-4px);
+    box-shadow: -4px 8px 16px rgba(0, 0, 0, 0.2);
 }
 
 .historySQL {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.5;
 }
 
 .historyTime {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-tertiary);
-    margin-top: 4px;
+    margin-top: 6px;
 }
 
 .schemaHint {
-    padding: 10px;
-    background: var(--bg-base);
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    margin-bottom: 8px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.015);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 12px;
+    transition: all var(--transition-smooth);
+}
+
+.schemaHint:hover {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .tableName {
     font-family: var(--font-mono);
     font-size: 13px;
-    color: var(--sql-table);
+    color: var(--accent);
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .columnList {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-tertiary);
+    line-height: 1.5;
 }

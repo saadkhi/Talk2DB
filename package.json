@@ -4,13 +4,13 @@
     "private": true,
     "description": "Root runner for Talk2DB",
     "workspaces": [
-        "sql-chat-app/nextjs-app"
+        "sql-chat-app/nextjs-app",
+        "sql-chat-app/express-backend"
     ],
     "scripts": {
         "install:all": "npm install",
-        "dev": "npm run dev -w nextjs-app",
-        "build": "npm run build -w nextjs-app",
-        "start": "npm run start -w nextjs-app"
+        "dev": "npm run dev --workspaces",
+        "build": "npm run build --workspaces"
     },
     "devDependencies": {}
 }

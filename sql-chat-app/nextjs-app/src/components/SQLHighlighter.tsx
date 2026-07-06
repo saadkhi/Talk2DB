@@ -81,16 +81,24 @@ const SQLHighlighter: React.FC<SQLHighlighterProps> = ({ sql }) => {
     };
 
     return (
-        <pre style={{
-            margin: 0,
-            fontFamily: "var(--font-mono)",
-            fontSize: "13px",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            color: "var(--text-primary)"
+        <div style={{
+            background: "rgba(0, 0, 0, 0.4)",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
+            backdropFilter: "blur(12px)",
+            borderRadius: "12px",
+            padding: "16px",
+            overflowX: "auto"
         }}>
-            <code>{highlightSQL(sql)}</code>
-        </pre>
+            <pre style={{
+                margin: 0,
+                fontFamily: "var(--font-mono)",
+                fontSize: "14px",
+                lineHeight: 1.6,
+                color: "var(--text-primary)"
+            }}>
+                <code>{highlightSQL(sql)}</code>
+            </pre>
+        </div>
     );
 };
 

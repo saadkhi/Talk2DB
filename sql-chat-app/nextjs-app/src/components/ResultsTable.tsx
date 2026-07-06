@@ -21,16 +21,17 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ data }) => {
     const displayData = showAll ? data : data.slice(0, 50);
 
     return (
-        <div style={{ width: "100%", overflow: "hidden" }}>
+        <div style={{ width: "100%", overflow: "hidden", animation: "slideUp var(--transition-smooth) forwards" }}>
             <div style={{
-                maxHeight: "280px",
+                maxHeight: "320px",
                 overflowY: "auto",
-                border: "1px solid var(--border)",
-                borderRadius: "8px",
-                background: "var(--bg-surface)"
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+                borderRadius: "16px",
+                background: "rgba(0, 0, 0, 0.4)",
+                backdropFilter: "blur(12px)"
             }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                    <thead style={{ position: "sticky", top: 0, background: "var(--bg-elevated)", zIndex: 1 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", color: "var(--text-primary)" }}>
+                    <thead style={{ position: "sticky", top: 0, background: "rgba(14, 15, 20, 0.8)", backdropFilter: "blur(8px)", zIndex: 1 }}>
                         <tr>
                             {headers.map((header) => (
                                 <th key={header} style={{
@@ -49,9 +50,13 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ data }) => {
                     <tbody>
                         {displayData.map((row, i) => (
                             <tr key={i} style={{
-                                background: i % 2 === 0 ? "var(--bg-surface)" : "transparent",
-                                height: "36px"
-                            }}>
+                                background: i % 2 === 0 ? "rgba(255, 255, 255, 0.02)" : "transparent",
+                                height: "40px",
+                                transition: "background var(--transition-fast)"
+                            }}
+                                onMouseOver={e => e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"}
+                                onMouseOut={e => e.currentTarget.style.background = i % 2 === 0 ? "rgba(255, 255, 255, 0.02)" : "transparent"}
+                            >
                                 {headers.map((header) => (
                                     <td key={header} style={{
                                         padding: "8px 12px",
@@ -74,16 +79,21 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ data }) => {
                     <button
                         onClick={() => setShowAll(true)}
                         style={{
-                            marginTop: "12px",
+                            marginTop: "16px",
                             width: "100%",
-                            padding: "8px",
-                            background: "var(--bg-elevated)",
+                            padding: "12px",
+                            background: "rgba(99, 102, 241, 0.1)",
+                            border: "1px dashed rgba(99, 102, 241, 0.4)",
                             color: "var(--accent)",
-                            fontSize: "12px",
-                            borderRadius: "6px",
+                            fontSize: "13px",
+                            borderRadius: "12px",
                             fontFamily: "var(--font-ui)",
-                            fontWeight: 500
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all var(--transition-bounce)"
                         }}
+                        onMouseOver={e => { e.currentTarget.style.background = "rgba(99, 102, 241, 0.2)"; e.currentTarget.style.transform = "scale(1.02)"; }}
+                        onMouseOut={e => { e.currentTarget.style.background = "rgba(99, 102, 241, 0.1)"; e.currentTarget.style.transform = "scale(1)"; }}
                     >
                         Show all {data.length} rows
                     </button>

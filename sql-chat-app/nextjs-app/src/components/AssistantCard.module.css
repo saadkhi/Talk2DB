@@ -1,49 +1,60 @@
 .card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    background: rgba(22, 24, 32, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    margin-bottom: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    margin-bottom: 12px;
+    transition: all var(--transition-bounce);
+    position: relative;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .zone {
-    padding: 16px;
+    padding: 20px;
 }
 
 .zone+.zone {
-    border-top: 1px solid var(--border);
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .label {
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-tertiary);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 12px;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 .sqlContainer {
-    background: var(--bg-base);
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 12px;
-    border: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .copyBtn {
     color: var(--text-tertiary);
-    transition: color 200ms;
+    transition: all var(--transition-bounce);
 }
 
 .copyBtn:hover {
-    color: var(--text-primary);
+    color: white;
+    transform: scale(1.1);
 }
 
 .metadata {
@@ -53,43 +64,52 @@
 
 .pill {
     font-size: 11px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 20px;
-    background: var(--bg-elevated);
-    position: relative;
-    overflow: hidden;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(4px);
+    transition: all var(--transition-bounce);
+}
+
+.pill:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .success {
     color: var(--success);
+    border-color: rgba(16, 185, 129, 0.2);
 }
 
 .danger {
     color: var(--danger);
+    border-color: rgba(239, 68, 68, 0.2);
 }
 
 .summary {
     font-size: 15px;
-    line-height: 1.7;
+    line-height: 1.6;
     color: var(--text-primary);
 }
 
 .errorBorder {
-    border-left: 3px solid var(--danger);
-    padding-left: 12px;
+    border-left: 4px solid var(--danger);
+    padding-left: 16px;
 }
 
 .actions {
     display: flex;
     gap: 12px;
-    margin-top: 4px;
-    padding: 4px 8px;
+    margin-top: 8px;
+    padding: 6px 12px;
     opacity: 0;
-    transition: opacity 200ms;
+    transition: opacity var(--transition-smooth);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
 }
 
-.cardContainer:hover .actions {
+.card:hover .actions {
     opacity: 1;
 }
 
@@ -97,11 +117,13 @@
     color: var(--text-tertiary);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     font-size: 12px;
-    transition: color 200ms;
+    font-weight: 500;
+    transition: all var(--transition-bounce);
 }
 
 .actionBtn:hover {
-    color: var(--text-primary);
+    color: white;
+    transform: translateY(-1px);
 }
