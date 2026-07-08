@@ -12,5 +12,7 @@
         "dev": "npm run dev --workspaces",
         "build": "npm run build --workspaces"
     },
-    "devDependencies": {}
+    "devDependencies": {
+        "@types/react": "^19.2.17"
+    }
 }
