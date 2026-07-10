@@ -24,9 +24,15 @@ async function getSystemPrompt() {
 let gradioClient: any = null;
 async function getGradioClient() {
     if (gradioClient) return gradioClient;
-    if (HF_TOKEN) gradioClient = await Client.connect(GRADIO_SPACE, { token: HF_TOKEN as any });
-    else gradioClient = await Client.connect(GRADIO_SPACE);
-    return gradioClient;
+    try {
+        if (HF_TOKEN) gradioClient = await Client.connect(GRADIO_SPACE, { token: HF_TOKEN as any });
+        else gradioClient = await Client.connect(GRADIO_SPACE);
+        return gradioClient;
+    } catch (err) {
+        // Do not cache the failed state — reset so the next request retries the connection
+        gradioClient = null;
+        throw err;
+    }
 }
 
 export async function chatHandler(req: Request, res: Response) {

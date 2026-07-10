@@ -73,12 +73,18 @@ export function rateLimit(
 }
 
 // Helper to get identifier from request
-export function getIdentifier(req: Request): string {
-    // Try to get from session/user ID if authenticated
-    // For now, use IP address (upgrade to session-based in production)
-    const forwarded = req.headers.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
-    return ip;
+// Accepts both Express Request (headers as object) and Web API Request (headers.get())
+export function getIdentifier(req: any): string {
+    // Express Request: req.headers is a plain object (string | string[] values)
+    // Web API Request: req.headers has a .get() method
+    let forwarded: string | null = null;
+    if (typeof req.headers?.get === 'function') {
+        forwarded = req.headers.get('x-forwarded-for');
+    } else if (req.headers) {
+        const val = req.headers['x-forwarded-for'];
+        forwarded = Array.isArray(val) ? val[0] : (val ?? null);
+    }
+    return forwarded ? forwarded.split(',')[0].trim() : 'unknown';
 }
 
 // Rate limit configurations for different endpoints

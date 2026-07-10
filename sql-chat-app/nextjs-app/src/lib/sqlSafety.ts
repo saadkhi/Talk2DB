@@ -40,14 +40,15 @@ export function isSQLSafe(sql: string): boolean {
         return false;
     }
     
-    // Only allow known safe keywords
+    // Only allow known safe keywords, identifiers, and numeric literals
     const words = trimmed.match(/\b\w+\b/g) || [];
     for (const word of words) {
         if (!ALLOWED_KEYWORDS.includes(word)) {
-            // Allow table/column names (alphanumeric with underscores)
-            if (!/^[A-Z_][A-Z0-9_]*$/.test(word)) {
-                return false;
-            }
+            // Allow table/column names (alphanumeric with underscores, must start with letter or _)
+            if (/^[A-Z_][A-Z0-9_]*$/.test(word)) continue;
+            // Allow numeric literals (integers and decimals tokenised as two \w parts)
+            if (/^\d+$/.test(word)) continue;
+            return false;
         }
     }
     

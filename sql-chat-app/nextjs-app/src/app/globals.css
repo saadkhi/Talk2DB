@@ -1,7 +1,7 @@
 :root {
   /* Premium Dark Mode Color System */
-  --bg-base: #030305;
-  --bg-surface: rgba(14, 15, 20, 0.6);
+  --bg-base: #080a12;
+  --bg-surface: rgba(13, 15, 26, 0.8);
   --bg-elevated: rgba(22, 24, 32, 0.7);
   --border: rgba(255, 255, 255, 0.08);
   --border-focus: rgba(99, 102, 241, 0.4);

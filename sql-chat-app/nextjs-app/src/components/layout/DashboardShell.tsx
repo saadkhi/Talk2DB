@@ -54,7 +54,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
 
             {/* Main Content Area */}
             <div
-                className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isMobile ? "ml-0" : isCollapsed ? "ml-20" : "ml-64"
+                className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isMobile ? "ml-0" : isCollapsed ? "ml-16" : "ml-60"
                     }`}
             >
                 {/* Sticky Header TopBar */}
@@ -66,7 +66,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
                 />
 
                 {/* Subpage Contents */}
-                <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl w-full mx-auto">
+                <main className="flex-1 p-5 md:p-7 overflow-y-auto max-w-7xl w-full mx-auto">
                     {children}
                 </main>
             </div>

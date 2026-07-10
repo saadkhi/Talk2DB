@@ -28,7 +28,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onBack }) => {
             if (isLogin) {
                 const result = await signIn('credentials', {
                     redirect: false,
-                    username,
+                    email,
                     password,
                 });
 
@@ -45,7 +45,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onBack }) => {
                 const res = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, password }),
+                    body: JSON.stringify({ name: username, email, password }),
                 });
 
                 const data = await res.json();
@@ -55,7 +55,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onBack }) => {
                 } else {
                     await signIn('credentials', {
                         redirect: false,
-                        username,
+                        email,
                         password,
                     });
                 }

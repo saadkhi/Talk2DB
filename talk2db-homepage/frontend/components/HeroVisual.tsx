@@ -1,28 +1,35 @@
-import { IconDatabase, IconUser, IconSparkles, IconTerminal } from "./icons";
+import { IconUser, IconSparkles, IconTerminal } from "./icons";
 
 export default function HeroVisual() {
   return (
     <div className="hero-visual" aria-hidden="true">
       <div className="hero-visual-glow" />
 
-      <div className="hero-db">
-        <IconDatabase width={46} height={46} />
+      <div className="hero-db-stack">
+        <div className="hero-db-ring hero-db-ring--1" />
+        <div className="hero-db-ring hero-db-ring--2" />
+        <div className="hero-db-cylinder">
+          <div className="hero-db-layer hero-db-layer--top" />
+          <div className="hero-db-layer hero-db-layer--body" />
+          <div className="hero-db-layer hero-db-layer--mid" />
+          <div className="hero-db-layer hero-db-layer--bottom" />
+        </div>
       </div>
 
       <div className="hero-card hero-card--question">
         <span className="hero-card-avatar">
-          <IconUser width={14} height={14} />
+          <IconUser width={13} height={13} />
         </span>
         <p>
           How many sales were made last month and what&apos;s the total
           revenue?
         </p>
-        <IconSparkles width={14} height={14} className="hero-card-spark" />
+        <IconSparkles width={13} height={13} className="hero-card-spark" />
       </div>
 
       <div className="hero-card hero-card--sql">
         <div className="hero-card-label">
-          <IconTerminal width={13} height={13} />
+          <IconTerminal width={12} height={12} />
           <span>SQL</span>
         </div>
         <pre className="hero-sql">

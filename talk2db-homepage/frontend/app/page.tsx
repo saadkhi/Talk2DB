@@ -106,7 +106,7 @@ export default function Home() {
         </header>
 
         <section className="hero">
-          <div className="hero-copy glass">
+          <div className="hero-copy">
             <span className="eyebrow">AI-POWERED SQL ASSISTANT</span>
             <h1>
               Chat with your
@@ -137,7 +137,7 @@ export default function Home() {
           ))}
         </section>
 
-        <section className="connect-banner glass">
+        <section className="connect-banner">
           <div className="connect-banner-main">
             <div className="connect-banner-heading">
               <IconDatabase width={20} height={20} />
@@ -147,15 +147,15 @@ export default function Home() {
               Connect your PostgreSQL database securely and start asking
               questions.
             </p>
-            <button type="button" className="btn btn--primary">
+            <button type="button" className="btn btn--connect">
               Connect Database
               <IconArrowRight width={16} height={16} />
             </button>
           </div>
 
-          <div className="connect-banner-points glass">
+          <div className="connect-banner-points">
             {trustPoints.map(({ icon: Icon, title, description }) => (
-              <div className="trust-point glass" key={title}>
+              <div className="trust-point" key={title}>
                 <div className="trust-point-title">
                   <Icon width={18} height={18} />
                   <span>{title}</span>

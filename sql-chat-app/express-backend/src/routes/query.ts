@@ -2,16 +2,14 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { generateSQL } from '../lib/sqlModel';
 import { callOpenRouter } from '../lib/openrouter';
-import { executeQuery } from '../lib/dbConnection';
+import { executeQuery, getUserDbPool } from '../lib/dbConnection';
 import { isSQLSafe, extractSQL } from '../lib/sqlSafety';
 import { formatDatabaseError } from '../lib/errorFormatter';
 import { rateLimit, getIdentifier, RATE_LIMITS } from '../lib/rateLimit';
 
 const prisma = new PrismaClient();
 
-// mock getSchema for now, or import if ported
 async function getSchema(dbUrl: string) {
-    const { getUserDbPool } = require('../lib/dbConnection');
     const pool = await getUserDbPool(dbUrl);
     const tablesResult = await pool.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`);
     const tables = await Promise.all(tablesResult.rows.map(async (row: any) => {
@@ -59,7 +57,7 @@ export async function queryHandler(req: Request, res: Response) {
 
         const sql = extractSQL(rawSQL);
         if (!isSQLSafe(sql)) return res.status(400).json({ error: "Generated query contains unsafe operations." });
-        const safeSql = /\\bLIMIT\\b/i.test(sql) ? sql : `${sql} LIMIT 500`;
+        const safeSql = /\bLIMIT\b/i.test(sql) ? sql : `${sql} LIMIT 500`;
 
         try {
             const { columns, rows } = await executeQuery(user.dbConnectionString, safeSql);
