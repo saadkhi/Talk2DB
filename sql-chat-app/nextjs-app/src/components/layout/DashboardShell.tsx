@@ -13,60 +13,60 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
-    // Monitor viewport resize for responsive collapse
     useEffect(() => {
         const handleResize = () => {
-            const width = window.innerWidth;
-            const mobile = width < 768;
+            const w = window.innerWidth;
+            const mobile = w < 768;
             setIsMobile(mobile);
-
-            if (mobile) {
-                setIsMobileOpen(false);
-            } else if (width >= 768 && width < 1024) {
-                setIsCollapsed(true);
-            } else {
-                setIsCollapsed(false);
-            }
+            if (mobile) setIsMobileOpen(false);
+            else if (w < 1024) setIsCollapsed(true);
+            else setIsCollapsed(false);
         };
-
         handleResize();
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    const toggleCollapse = () => {
-        setIsCollapsed((prev) => !prev);
-    };
-
-    const toggleMobile = () => {
-        setIsMobileOpen((prev) => !prev);
-    };
+    const sidebarW = isMobile ? 0 : isCollapsed ? 64 : 240;
 
     return (
-        <div className="flex min-h-screen bg-[var(--bg-base)] text-white overflow-hidden">
-            {/* Sidebar component */}
+        <div style={{
+            display: "flex",
+            minHeight: "100vh",
+            background: "var(--bg-base)",
+            color: "#fff",
+            overflow: "hidden",
+        }}>
             <Sidebar
                 isCollapsed={isCollapsed}
                 isMobileOpen={isMobileOpen}
                 onCloseMobile={() => setIsMobileOpen(false)}
-                onToggleCollapse={toggleCollapse}
+                onToggleCollapse={() => setIsCollapsed(p => !p)}
             />
 
-            {/* Main Content Area */}
-            <div
-                className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isMobile ? "ml-0" : isCollapsed ? "ml-16" : "ml-60"
-                    }`}
-            >
-                {/* Sticky Header TopBar */}
+            <div style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                minHeight: "100vh",
+                marginLeft: sidebarW,
+                transition: "margin-left 0.3s ease",
+            }}>
                 <TopBar
                     isCollapsed={isCollapsed}
-                    onToggleCollapse={toggleCollapse}
-                    onOpenMobile={toggleMobile}
+                    onToggleCollapse={() => setIsCollapsed(p => !p)}
+                    onOpenMobile={() => setIsMobileOpen(p => !p)}
                     isMobile={isMobile}
                 />
-
-                {/* Subpage Contents */}
-                <main className="flex-1 p-5 md:p-7 overflow-y-auto max-w-7xl w-full mx-auto">
+                <main style={{
+                    flex: 1,
+                    padding: "28px 32px",
+                    overflowY: "auto",
+                    maxWidth: "1280px",
+                    width: "100%",
+                    margin: "0 auto",
+                    boxSizing: "border-box",
+                }}>
                     {children}
                 </main>
             </div>
