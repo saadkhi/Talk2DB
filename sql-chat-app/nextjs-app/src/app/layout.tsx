@@ -1,17 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: '--font-inter',
-});
-
-const geist = Geist({
-  subsets: ["latin"],
-  variable: '--font-geist',
-});
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
@@ -30,7 +20,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${geist.variable} ${geistMono.variable} antialiased`}>
+      <head>
+        {/* Satoshi — modern geometric sans, served via Fontshare CDN */}
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className={`${geistMono.variable} antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -33,9 +33,7 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
             });
 
             const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.error || "Failed to verify database connection");
-            }
+            if (!res.ok) throw new Error(data.error || "Failed to verify database connection");
 
             setSuccess(true);
             await checkConnectionStatus();
@@ -43,117 +41,250 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                 onClose();
                 setSuccess(false);
                 setConnectionString("");
-            }, 1000);
+            }, 1200);
         } catch (err: any) {
-            setError(err.message || "Could not connect to database. Please check credentials and try again.");
+            setError(err.message || "Could not connect. Please check your credentials.");
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm transition-all duration-300">
+        <>
+            {/* Backdrop */}
             <div
-                className="bg-[#1A1D27] border border-[#2D3748] rounded-2xl w-full max-w-lg p-6 relative shadow-2xl scale-100 animate-fadeIn"
+                onClick={dbConnected ? onClose : undefined}
                 style={{
-                    animation: "fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+                    position: "fixed", inset: 0, zIndex: 100,
+                    background: "rgba(0,0,0,0.75)",
+                    backdropFilter: "blur(6px)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "20px",
                 }}
             >
-                {dbConnected && (
+                {/* Modal card */}
+                <div
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                        width: "100%", maxWidth: "480px",
+                        background: "#0d0f1a",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "18px",
+                        padding: "28px 28px 24px",
+                        position: "relative",
+                        boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08)",
+                        animation: "modalIn 0.2s cubic-bezier(0.16,1,0.3,1) forwards",
+                    }}
+                >
+                    {/* Close button — always visible */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-                        aria-label="Close modal"
+                        aria-label="Close"
+                        style={{
+                            position: "absolute", top: "16px", right: "16px",
+                            background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                            borderRadius: "8px", width: "30px", height: "30px",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            cursor: "pointer", color: "#6B7280", transition: "all 0.15s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
-                )}
 
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125T12 10.125" />
-                        </svg>
-                    </div>
-                    <h2 className="text-xl font-bold text-white">Connect Your Postgres Database</h2>
-                </div>
-
-                <p className="text-xs text-[#9CA3AF] mb-6 leading-relaxed">
-                    Enter your database connection URL to enable secure SQL generation, visual tree layout schema extraction, table data profiler reports, and real-time execution queries.
-                </p>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {error && (
-                        <div className="p-3 bg-red-950/40 border border-red-800/60 text-red-400 text-xs rounded-xl flex items-start gap-2.5">
-                            <svg className="w-4.5 h-4.5 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px" }}>
+                        <div style={{
+                            width: "42px", height: "42px", borderRadius: "12px", flexShrink: 0,
+                            background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15))",
+                            border: "1px solid rgba(99,102,241,0.25)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                            <svg width="20" height="20" fill="none" stroke="#818cf8" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 2.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
                             </svg>
-                            <span className="leading-relaxed">{error}</span>
                         </div>
-                    )}
-
-                    {success && (
-                        <div className="p-3 bg-emerald-950/40 border border-emerald-800/60 text-emerald-400 text-xs rounded-xl flex items-center gap-2.5">
-                            <svg className="w-4.5 h-4.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="font-semibold">Database connected successfully! Closing...</span>
+                        <div>
+                            <h2 style={{ fontSize: "17px", fontWeight: 800, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>
+                                Connect Your Database
+                            </h2>
+                            <p style={{ fontSize: "12px", color: "#6B7280", margin: "2px 0 0" }}>PostgreSQL · Neon · Supabase · RDS</p>
                         </div>
-                    )}
-
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">
-                            PostgreSQL Connection URL
-                        </label>
-                        <textarea
-                            placeholder="postgresql://username:password@hostname:5432/dbname"
-                            value={connectionString}
-                            onChange={(e) => setConnectionString(e.target.value)}
-                            disabled={submitting || success}
-                            className="bg-[#0f1117] border border-[#2D3748] hover:border-gray-700 focus:border-blue-500 text-white p-3.5 rounded-xl text-xs w-full min-h-[100px] font-mono focus:outline-none transition-all leading-normal placeholder-gray-600"
-                            required
-                        />
-                        <span className="text-[10px] text-gray-500 mt-1 select-none leading-relaxed">
-                            Example: postgresql://postgres:authpass@myhost.neon.tech:5432/main?sslmode=require
-                        </span>
                     </div>
 
-                    <div className="flex justify-end gap-3 mt-6 pt-3 border-t border-[#2D3748]/50">
-                        {dbConnected && (
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                disabled={submitting || success}
-                                className="px-4 py-2 bg-transparent hover:bg-[#2D3748]/50 border border-[#2D3748] text-white text-xs font-semibold rounded-lg transition-all"
-                            >
-                                Cancel
-                            </button>
+                    <p style={{ fontSize: "13px", color: "#6B7280", lineHeight: 1.6, marginBottom: "22px" }}>
+                        Paste your connection string below. It's encrypted with AES-256 and stored securely — never logged or shared.
+                    </p>
+
+                    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+
+                        {/* Error */}
+                        {error && (
+                            <div style={{
+                                display: "flex", alignItems: "flex-start", gap: "10px",
+                                padding: "12px 14px", borderRadius: "10px",
+                                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+                            }}>
+                                <svg width="15" height="15" fill="none" stroke="#f87171" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: "1px" }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                </svg>
+                                <span style={{ fontSize: "12px", color: "#fca5a5", lineHeight: 1.55 }}>{error}</span>
+                            </div>
                         )}
-                        <button
-                            type="submit"
-                            disabled={submitting || success}
-                            className="px-5 py-2 bg-blue-600 hover:bg-blue-550 disabled:bg-blue-800/50 text-white text-xs font-bold rounded-lg transition-all shadow-md hover:shadow-blue-500/10 flex items-center gap-2"
-                        >
-                            {submitting ? (
-                                <>
-                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Testing & Connecting...
-                                </>
-                            ) : (
-                                "Connect Database"
+
+                        {/* Success */}
+                        {success && (
+                            <div style={{
+                                display: "flex", alignItems: "center", gap: "10px",
+                                padding: "12px 14px", borderRadius: "10px",
+                                background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)",
+                            }}>
+                                <svg width="15" height="15" fill="none" stroke="#34d399" strokeWidth="2.5" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                <span style={{ fontSize: "12px", color: "#6ee7b7", fontWeight: 600 }}>
+                                    Connected successfully! Closing…
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Input */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <label style={{ fontSize: "11px", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                                Connection String
+                            </label>
+                            <div style={{ position: "relative" }}>
+                                <textarea
+                                    placeholder="postgresql://username:password@host:5432/dbname?sslmode=require"
+                                    value={connectionString}
+                                    onChange={e => setConnectionString(e.target.value)}
+                                    disabled={submitting || success}
+                                    required
+                                    rows={3}
+                                    style={{
+                                        width: "100%", boxSizing: "border-box",
+                                        background: "#080a12",
+                                        border: "1px solid rgba(255,255,255,0.08)",
+                                        borderRadius: "10px", padding: "12px 14px",
+                                        fontSize: "12px", fontFamily: "'Geist Mono', 'Fira Code', monospace",
+                                        color: "#e2e8f0", lineHeight: 1.65, resize: "vertical",
+                                        outline: "none", transition: "border-color 0.15s",
+                                    }}
+                                    onFocus={e => (e.currentTarget.style.borderColor = "rgba(99,102,241,0.5)")}
+                                    onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
+                                />
+                            </div>
+
+                            {/* Example hint */}
+                            <div style={{
+                                display: "flex", alignItems: "flex-start", gap: "8px",
+                                padding: "10px 12px", borderRadius: "8px",
+                                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+                            }}>
+                                <svg width="12" height="12" fill="none" stroke="#4B5563" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: "1px" }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                                </svg>
+                                <span style={{ fontSize: "11px", color: "#4B5563", fontFamily: "monospace", lineHeight: 1.5 }}>
+                                    postgresql://postgres:pass@db.neon.tech:5432/main?sslmode=require
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Supported providers */}
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            {["Neon", "Supabase", "AWS RDS", "Railway", "Local"].map(p => (
+                                <span key={p} style={{
+                                    fontSize: "10px", fontWeight: 600, color: "#4B5563",
+                                    background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+                                    borderRadius: "20px", padding: "3px 10px",
+                                }}>{p}</span>
+                            ))}
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{
+                            display: "flex", justifyContent: "flex-end", gap: "10px",
+                            paddingTop: "16px", borderTop: "1px solid rgba(255,255,255,0.06)",
+                        }}>
+                            {dbConnected && (
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    disabled={submitting || success}
+                                    style={{
+                                        padding: "9px 20px", borderRadius: "9px",
+                                        background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                                        color: "#9CA3AF", fontSize: "13px", fontWeight: 600, cursor: "pointer",
+                                        transition: "all 0.15s",
+                                    }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#9CA3AF"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
+                                >
+                                    Cancel
+                                </button>
                             )}
-                        </button>
-                    </div>
-                </form>
+                            <button
+                                type="submit"
+                                disabled={submitting || success}
+                                style={{
+                                    padding: "9px 22px", borderRadius: "9px",
+                                    background: submitting || success
+                                        ? "rgba(99,102,241,0.4)"
+                                        : "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                                    border: "none", color: "#fff",
+                                    fontSize: "13px", fontWeight: 700,
+                                    cursor: submitting || success ? "not-allowed" : "pointer",
+                                    display: "flex", alignItems: "center", gap: "8px",
+                                    boxShadow: submitting || success ? "none" : "0 4px 14px rgba(99,102,241,0.35)",
+                                    transition: "filter 0.15s",
+                                    minWidth: "160px", justifyContent: "center",
+                                }}
+                                onMouseEnter={e => { if (!submitting && !success) (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
+                            >
+                                {submitting ? (
+                                    <>
+                                        <div style={{
+                                            width: "14px", height: "14px", flexShrink: 0,
+                                            border: "2px solid rgba(255,255,255,0.25)",
+                                            borderTop: "2px solid #fff",
+                                            borderRadius: "50%", animation: "spin 0.7s linear infinite",
+                                        }} />
+                                        Testing connection…
+                                    </>
+                                ) : success ? (
+                                    <>
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                        Connected!
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                                        </svg>
+                                        Connect Database
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <style jsx>{`
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: scale(0.95); }
-                    to { opacity: 1; transform: scale(1); }
+
+            <style>{`
+                @keyframes modalIn {
+                    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+                    to   { opacity: 1; transform: scale(1)    translateY(0);    }
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
                 }
             `}</style>
-        </div>
+        </>
     );
 }

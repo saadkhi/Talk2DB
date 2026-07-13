@@ -2,7 +2,7 @@ export async function callOpenRouter(systemPrompt: string, userMessage: string):
     try {
         const baseUrl = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
         const apiKey = process.env.OPENROUTER_API_KEY;
-        const model = process.env.OPENROUTER_MODEL || "baidu/cobuddy:free";
+        const model = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
 
         const response = await fetch(`${baseUrl}/chat/completions`, {
             method: "POST",

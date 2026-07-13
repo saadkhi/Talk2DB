@@ -32,10 +32,10 @@
   --sql-number: #d19a66;
   --sql-table: #61afef;
 
-  /* Typography */
-  --font-main: var(--font-inter), system-ui, sans-serif;
-  --font-ui: var(--font-geist), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Typography — Satoshi as primary UI font */
+  --font-main: 'Satoshi', system-ui, -apple-system, sans-serif;
+  --font-ui:   'Satoshi', system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), 'Fira Code', ui-monospace, monospace;
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
