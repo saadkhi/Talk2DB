@@ -9,13 +9,66 @@ interface ConnectDBModalProps {
 }
 
 export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps) {
-    const { checkConnectionStatus, dbConnected } = useDatabase();
+    const { checkConnectionStatus, dbConnected, disconnectDatabase } = useDatabase();
     const [connectionString, setConnectionString] = useState("");
+    const [dialect, setDialect] = useState<"postgresql" | "mysql" | "sqlite">("postgresql");
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [view, setView] = useState<"connect" | "confirm-disconnect">("connect");
+    const [disconnecting, setDisconnecting] = useState(false);
+    const [disconnectError, setDisconnectError] = useState<string | null>(null);
+
+    const handleDisconnect = async () => {
+        setDisconnecting(true);
+        setDisconnectError(null);
+        try {
+            await disconnectDatabase();
+            setView("connect");
+            onClose();
+        } catch (err: any) {
+            setDisconnectError(err.message || "Failed to disconnect");
+        } finally {
+            setDisconnecting(false);
+        }
+    };
 
     if (!isOpen) return null;
+
+    // ── Disconnect confirmation panel ──────────────────────────────────────
+    if (view === "confirm-disconnect") {
+        return (
+            <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+                    <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "18px", padding: "28px 28px 24px", boxShadow: "0 24px 80px rgba(0,0,0,0.6)", animation: "modalIn 0.2s cubic-bezier(0.16,1,0.3,1) forwards" }}>
+                        {/* Icon */}
+                        <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" }}>
+                            <svg width="20" height="20" fill="none" stroke="#ef4444" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                            </svg>
+                        </div>
+                        <h3 style={{ fontSize: "17px", fontWeight: 800, color: "#fff", margin: "0 0 8px" }}>Disconnect Database?</h3>
+                        <p style={{ fontSize: "13px", color: "#6B7280", lineHeight: 1.6, margin: "0 0 20px" }}>
+                            This removes your stored connection string. All tools (Query Studio, Visualizer, Reports) will stop working until you reconnect.
+                        </p>
+                        {disconnectError && (
+                            <p style={{ fontSize: "12px", color: "#f87171", margin: "0 0 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "8px", padding: "10px 12px" }}>
+                                ⚠ {disconnectError}
+                            </p>
+                        )}
+                        <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                            <button onClick={() => { setView("connect"); setDisconnectError(null); }} style={{ padding: "9px 20px", borderRadius: "9px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#9CA3AF", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+                            <button onClick={handleDisconnect} disabled={disconnecting} style={{ padding: "9px 20px", borderRadius: "9px", background: disconnecting ? "rgba(239,68,68,0.3)" : "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: "13px", fontWeight: 700, cursor: disconnecting ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "7px" }}>
+                                {disconnecting && <div style={{ width: "13px", height: "13px", border: "2px solid rgba(248,113,113,0.3)", borderTop: "2px solid #f87171", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />}
+                                {disconnecting ? "Disconnecting…" : "Yes, Disconnect"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <style>{`@keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } } @keyframes spin { to { transform:rotate(360deg); } }`}</style>
+            </>
+        );
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,7 +82,7 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
             const res = await fetch("/api/user/connect-db", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ connectionString, dialect: "postgresql" }),
+                body: JSON.stringify({ connectionString, dialect }),
             });
 
             const data = await res.json();
@@ -95,6 +148,28 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                         </svg>
                     </button>
 
+                    {/* Disconnect button — only when already connected */}
+                    {dbConnected && (
+                        <button
+                            onClick={() => { setView("confirm-disconnect"); setDisconnectError(null); }}
+                            style={{
+                                position: "absolute", top: "16px", right: "54px",
+                                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)",
+                                borderRadius: "8px", padding: "5px 12px",
+                                display: "flex", alignItems: "center", gap: "5px",
+                                cursor: "pointer", color: "#f87171", fontSize: "11px", fontWeight: 700,
+                                transition: "all 0.15s",
+                            }}
+                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.14)"}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"}
+                        >
+                            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                            </svg>
+                            Disconnect
+                        </button>
+                    )}
+
                     {/* Header */}
                     <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px" }}>
                         <div style={{
@@ -109,7 +184,7 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                         </div>
                         <div>
                             <h2 style={{ fontSize: "17px", fontWeight: 800, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>
-                                Connect Your Database
+                                {dbConnected ? "Update Database Connection" : "Connect Your Database"}
                             </h2>
                             <p style={{ fontSize: "12px", color: "#6B7280", margin: "2px 0 0" }}>PostgreSQL · Neon · Supabase · RDS</p>
                         </div>
@@ -154,11 +229,45 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                         {/* Input */}
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                             <label style={{ fontSize: "11px", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                                Database Dialect
+                            </label>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                                {(["postgresql", "mysql", "sqlite"] as const).map(d => {
+                                    const labels: Record<string, string> = { postgresql: "PostgreSQL", mysql: "MySQL", sqlite: "SQLite" };
+                                    const active = dialect === d;
+                                    return (
+                                        <button
+                                            key={d}
+                                            type="button"
+                                            onClick={() => setDialect(d)}
+                                            style={{
+                                                flex: 1, padding: "8px 0", borderRadius: "8px", fontSize: "12px",
+                                                fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+                                                background: active ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)",
+                                                border: active ? "1px solid rgba(99,102,241,0.4)" : "1px solid rgba(255,255,255,0.07)",
+                                                color: active ? "#a5b4fc" : "#6B7280",
+                                            }}
+                                        >
+                                            {labels[d]}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <label style={{ fontSize: "11px", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                                 Connection String
                             </label>
                             <div style={{ position: "relative" }}>
                                 <textarea
-                                    placeholder="postgresql://username:password@host:5432/dbname?sslmode=require"
+                                    placeholder={
+                                        dialect === "postgresql"
+                                            ? "postgresql://user:pass@host:5432/dbname?sslmode=require"
+                                            : dialect === "mysql"
+                                            ? "mysql://user:pass@host:3306/dbname"
+                                            : "file:/path/to/database.sqlite"
+                                    }
                                     value={connectionString}
                                     onChange={e => setConnectionString(e.target.value)}
                                     disabled={submitting || success}
@@ -178,7 +287,7 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                                 />
                             </div>
 
-                            {/* Example hint */}
+                            {/* Dynamic example hint */}
                             <div style={{
                                 display: "flex", alignItems: "flex-start", gap: "8px",
                                 padding: "10px 12px", borderRadius: "8px",
@@ -188,20 +297,11 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                                 </svg>
                                 <span style={{ fontSize: "11px", color: "#4B5563", fontFamily: "monospace", lineHeight: 1.5 }}>
-                                    postgresql://postgres:pass@db.neon.tech:5432/main?sslmode=require
+                                    {dialect === "postgresql" && "postgresql://postgres:pass@db.neon.tech:5432/main?sslmode=require"}
+                                    {dialect === "mysql" && "mysql://root:pass@mysql.railway.app:3306/mydb"}
+                                    {dialect === "sqlite" && "file:/absolute/path/to/database.sqlite"}
                                 </span>
                             </div>
-                        </div>
-
-                        {/* Supported providers */}
-                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                            {["Neon", "Supabase", "AWS RDS", "Railway", "Local"].map(p => (
-                                <span key={p} style={{
-                                    fontSize: "10px", fontWeight: 600, color: "#4B5563",
-                                    background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
-                                    borderRadius: "20px", padding: "3px 10px",
-                                }}>{p}</span>
-                            ))}
                         </div>
 
                         {/* Actions */}

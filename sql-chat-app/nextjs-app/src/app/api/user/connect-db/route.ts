@@ -87,3 +87,29 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: error.message || "Failed to verify database connection" }, { status: 500 });
     }
 }
+
+export async function DELETE(req: Request) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const userId = (session.user as any).id;
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                dbConnectionString: null,
+                dbDialect: null,
+            },
+        });
+
+        return NextResponse.json({ success: true, message: "Database disconnected" });
+    } catch (error: any) {
+        if (process.env.NODE_ENV !== 'production') {
+            console.error("Database disconnect error:", error);
+        }
+        return NextResponse.json({ error: error.message || "Failed to disconnect database" }, { status: 500 });
+    }
+}

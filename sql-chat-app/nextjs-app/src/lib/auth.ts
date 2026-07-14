@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GitHubProvider from "next-auth/providers/github";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "./prisma";
 import bcrypt from "bcryptjs";
@@ -13,6 +14,16 @@ export const authOptions: NextAuthOptions = {
         error: "/auth/login",
     },
     providers: [
+        // GitHub OAuth — only registers the provider when keys are configured
+        ...(process.env.GITHUB_ID && process.env.GITHUB_SECRET
+            ? [
+                  GitHubProvider({
+                      clientId: process.env.GITHUB_ID,
+                      clientSecret: process.env.GITHUB_SECRET,
+                  }),
+              ]
+            : []),
+
         CredentialsProvider({
             name: "credentials",
             credentials: {

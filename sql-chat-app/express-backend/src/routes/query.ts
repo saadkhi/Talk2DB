@@ -37,6 +37,8 @@ export async function queryHandler(req: Request, res: Response) {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user?.dbConnectionString) return res.status(400).json({ error: "No database connected." });
 
+        const dialect = user.dbDialect || "postgresql";
+
         let schemaContext = "";
         try {
             const schema = await getSchema(user.dbConnectionString);
@@ -45,8 +47,18 @@ export async function queryHandler(req: Request, res: Response) {
             console.warn("Could not load schema context");
         }
 
-        const systemPromptMessage = `You are a high-performance PostgreSQL query compiler. Given a user request and database schema context, translate the request into a single syntactically correct PostgreSQL SELECT query.\nReturn ONLY raw SQL query text. Do NOT wrap it in markdown code blocks, do NOT write any comments, do NOT write explanations. Only pure SELECT SQL.`;
-        const userMessageContent = schemaContext ? `Database Schema:\n${schemaContext}\n\nUser Request: ${prompt}\n\nGenerate SQL SELECT query.` : `User Request: ${prompt}\n\nGenerate SQL SELECT query.`;
+        // Build a dialect-aware system prompt so the LLM generates correct syntax
+        const dialectInstructions: Record<string, string> = {
+            postgresql: "Generate a syntactically correct PostgreSQL SELECT query. Use double-quoted identifiers for column/table names with spaces. Use $1, $2 for parameterised values if needed.",
+            mysql:      "Generate a syntactically correct MySQL SELECT query. Use backtick-quoted identifiers. Use LIMIT instead of FETCH FIRST. Do NOT use PostgreSQL-specific functions.",
+            sqlite:     "Generate a syntactically correct SQLite SELECT query. Use double-quoted identifiers. Avoid functions not supported by SQLite (e.g. no ARRAY_AGG, no DATE_TRUNC — use strftime instead).",
+        };
+        const dialectHint = dialectInstructions[dialect] || dialectInstructions.postgresql;
+
+        const systemPromptMessage = `You are a high-performance ${dialect.toUpperCase()} query compiler. ${dialectHint}\nReturn ONLY raw SQL query text. Do NOT wrap it in markdown code blocks, do NOT write any comments, do NOT write explanations. Only pure SELECT SQL.`;
+        const userMessageContent = schemaContext
+            ? `Database Schema:\n${schemaContext}\n\nUser Request: ${prompt}\n\nGenerate SQL SELECT query.`
+            : `User Request: ${prompt}\n\nGenerate SQL SELECT query.`;
 
         let rawSQL = "";
         try {

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 
 interface DatabaseContextType {
     dbConnected: boolean | null;
+    dbDialect: string | null;
     loading: boolean;
     showConnectModal: boolean;
     setShowConnectModal: (show: boolean) => void;
@@ -17,6 +18,7 @@ const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined
 export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     const { status } = useSession();
     const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+    const [dbDialect, setDbDialect] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [showConnectModal, setShowConnectModal] = useState(false);
 
@@ -32,6 +34,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             if (res.ok) {
                 const profile = await res.json();
                 setDbConnected(!!profile.dbConnectionString);
+                setDbDialect(profile.dbDialect ?? null);
             } else {
                 setDbConnected(false);
             }
@@ -44,9 +47,18 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     }, [status]);
 
     const disconnectDatabase = useCallback(async () => {
-        // Just client side disconnect/reset or we could call api if we want.
-        // There is no explicit disconnect api. So we just reset state or user can connect a new one.
-        setDbConnected(false);
+        try {
+            const res = await fetch("/api/user/connect-db", { method: "DELETE" });
+            if (!res.ok) {
+                const d = await res.json();
+                throw new Error(d.error || "Disconnect failed");
+            }
+            setDbConnected(false);
+            setDbDialect(null);
+        } catch (err) {
+            console.error("Failed to disconnect database:", err);
+            throw err; // re-throw so the caller (modal) can show the error
+        }
     }, []);
 
     useEffect(() => {
@@ -57,6 +69,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         <DatabaseContext.Provider
             value={{
                 dbConnected,
+                dbDialect,
                 loading,
                 showConnectModal,
                 setShowConnectModal,
