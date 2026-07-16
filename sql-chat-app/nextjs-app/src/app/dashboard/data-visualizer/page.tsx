@@ -3,165 +3,140 @@ import React, { useState } from "react";
 import ChartRenderer from "@/components/data/ChartRenderer";
 import DataTable from "@/components/data/DataTable";
 
-const VISUAL_EXAMPLES = [
-    "Compare conversation sizes per user in a bar chart",
-    "Show email verification ratios in a pie chart",
-    "Chart the daily user sign ups in a line chart",
+const EXAMPLES = [
+    "Compare conversations per user as a bar chart",
+    "Show daily message volume over the last week",
+    "Pie chart of database dialect distribution",
 ];
+
+const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
+const label = { fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" };
 
 export default function DataVisualizerPage() {
     const [prompt, setPrompt] = useState("");
     const [loading, setLoading] = useState(false);
-    const [chartConfig, setChartConfig] = useState<{
-        chartType: "bar" | "line" | "pie" | "area" | "scatter";
-        xKey: string;
-        yKeys: string[];
-        title?: string;
-        sql?: string;
+    const [result, setResult] = useState<{
+        chartType: "bar" | "line" | "pie" | "area";
+        xKey: string; yKeys: string[]; title: string;
+        sql: string; columns: string[]; data: any[];
     } | null>(null);
-    const [columns, setColumns] = useState<string[]>([]);
-    const [data, setData] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
 
-    const handleVisualize = async (e?: React.FormEvent, customPrompt?: string) => {
-        if (e) e.preventDefault();
-        const activePrompt = customPrompt || prompt;
-        if (!activePrompt.trim()) return;
-
-        setLoading(true);
-        setError(null);
-        setChartConfig(null);
-        setColumns([]);
-        setData([]);
-
+    const run = async (q: string) => {
+        if (!q.trim()) return;
+        setLoading(true); setError(null); setResult(null);
         try {
             const res = await fetch("/api/visualize", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: activePrompt }),
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: q }),
             });
-
-            const result = await res.json();
-            if (!res.ok) {
-                throw new Error(result.error || "Visualization compilation failed");
-            }
-
-            setChartConfig({
-                chartType: result.chartType,
-                xKey: result.xKey,
-                yKeys: result.yKeys,
-                title: result.title,
-                sql: result.sql,
-            });
-            setColumns(result.columns || []);
-            setData(result.data || []);
-        } catch (err: any) {
-            console.error(err);
-            setError(err.message || "An unexpected error occurred compiling the chart.");
-        } finally {
-            setLoading(false);
-        }
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Visualization failed");
+            setResult(data);
+        } catch (e: any) { setError(e.message); }
+        finally { setLoading(false); }
     };
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto">
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1100px", margin: "0 auto", width: "100%" }}>
+            {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-white mb-1">Data Visualizer</h1>
-                <p className="text-gray-400 text-sm">
-                    Describe the chart you want in plain words. Talk2DB compiles a SQL query, pulls the live data, and plots it interactively.
-                </p>
+                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Data Visualizer</h1>
+                <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Describe the chart you want — Talk2DB generates the SQL, fetches the data, and renders it.</p>
             </div>
 
-            <div className="bg-[#1a1d2e] border border-[#2d3154] p-6 rounded-2xl space-y-4 shadow-xl">
-                <form onSubmit={(e) => handleVisualize(e)} className="space-y-4">
-                    <div className="flex flex-col gap-2">
-                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                            Visualization Query Request
-                        </label>
-                        <textarea
-                            placeholder="e.g. Render a line chart showing conversation updates timeline..."
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            disabled={loading}
-                            className="bg-[#0f1117] border border-[#2d3154] text-white p-4 rounded-xl text-sm w-full min-h-[90px] focus:outline-none focus:border-indigo-500 transition-all font-sans leading-relaxed"
-                            required
-                        />
-                    </div>
-
-                    <div className="flex justify-between items-center flex-wrap gap-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-gray-500 font-semibold">Try:</span>
-                            {VISUAL_EXAMPLES.map((ex) => (
-                                <button
-                                    key={ex}
-                                    type="button"
-                                    onClick={() => {
-                                        setPrompt(ex);
-                                        handleVisualize(undefined, ex);
+            {/* Input card */}
+            <div style={{ ...card, padding: "22px 24px" }}>
+                <form onSubmit={e => { e.preventDefault(); run(prompt); }} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                    <label style={label}>Visualization Request</label>
+                    <textarea
+                        value={prompt} onChange={e => setPrompt(e.target.value)}
+                        placeholder="e.g. Bar chart showing the number of conversations per user..."
+                        disabled={loading} required rows={3}
+                        style={{
+                            background: "#080a12", border: "1px solid rgba(255,255,255,0.08)",
+                            color: "#fff", padding: "14px 16px", borderRadius: "10px",
+                            fontSize: "14px", fontFamily: "inherit", lineHeight: 1.65,
+                            resize: "vertical", outline: "none", transition: "border-color 0.15s",
+                            width: "100%", boxSizing: "border-box",
+                        }}
+                        onFocus={e => (e.currentTarget.style.borderColor = "#6366f1")}
+                        onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
+                    />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "11px", color: "#4B5563", fontWeight: 600 }}>Try:</span>
+                            {EXAMPLES.map(ex => (
+                                <button key={ex} type="button" disabled={loading}
+                                    onClick={() => { setPrompt(ex); run(ex); }}
+                                    style={{
+                                        fontSize: "11px", padding: "5px 12px", borderRadius: "20px",
+                                        background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)",
+                                        color: "#93c5fd", cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap",
                                     }}
-                                    disabled={loading}
-                                    className="text-xs px-2.5 py-1 rounded bg-[#242840] text-gray-300 hover:text-white border border-[#2d3154] hover:border-indigo-500 transition-all whitespace-nowrap"
-                                >
-                                    {ex}
-                                </button>
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.15)"}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.08)"}
+                                >{ex}</button>
                             ))}
                         </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-all shadow-lg hover:shadow-indigo-500/20"
+                        <button type="submit" disabled={loading} style={{
+                            padding: "10px 28px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
+                            background: loading ? "rgba(59,130,246,0.4)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
+                            color: "#fff", border: "none", cursor: loading ? "not-allowed" : "pointer",
+                            boxShadow: loading ? "none" : "0 4px 14px rgba(59,130,246,0.3)", transition: "filter 0.15s",
+                            display: "flex", alignItems: "center", gap: "8px",
+                        }}
+                            onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
                         >
-                            {loading ? "Chart Plotting..." : "Render Visualization"}
+                            {loading && <div style={{ width: "14px", height: "14px", border: "2px solid rgba(255,255,255,0.3)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />}
+                            {loading ? "Rendering…" : "Render Chart"}
                         </button>
                     </div>
                 </form>
             </div>
 
+            {/* Error */}
             {error && (
-                <div className="bg-red-950/40 border border-red-800 p-4 rounded-xl text-red-300 text-sm">
-                    <p className="font-semibold">⚠ Visualizer Exception</p>
-                    <p>{error}</p>
+                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "12px", padding: "14px 16px" }}>
+                    <p style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", margin: "0 0 4px" }}>⚠ Visualization Error</p>
+                    <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0 }}>{error}</p>
                 </div>
             )}
 
-            {chartConfig && (
-                <div className="grid grid-cols-1 gap-6">
-                    {/* Chart Renderer Card */}
-                    <div className="bg-[#1a1d2e] border border-[#2d3154] rounded-2xl p-6 shadow-xl space-y-4">
+            {/* Chart output */}
+            {result && (
+                <>
+                    {/* Chart */}
+                    <div style={{ ...card, padding: "24px" }}>
                         <ChartRenderer
-                            chartType={chartConfig.chartType}
-                            data={data}
-                            xKey={chartConfig.xKey}
-                            yKeys={chartConfig.yKeys}
-                            title={chartConfig.title}
+                            chartType={result.chartType} data={result.data}
+                            xKey={result.xKey} yKeys={result.yKeys} title={result.title}
                         />
                     </div>
 
-                    {/* Under-the-hood SQL Details */}
-                    {chartConfig.sql && (
-                        <details className="bg-[#111322] border border-[#2d3154] rounded-2xl p-4 cursor-pointer group">
-                            <summary className="text-xs font-semibold text-gray-400 uppercase tracking-widest select-none outline-none flex justify-between items-center">
-                                <span>Toggle Generated Compilation Script</span>
-                                <span className="text-indigo-400 group-open:rotate-180 transition-transform">▼</span>
-                            </summary>
-                            <pre className="mt-3 p-4 bg-[#0f1117] rounded-xl text-indigo-300 font-mono text-xs overflow-x-auto border border-[#2d3154] whitespace-pre-wrap cursor-text">
-                                {chartConfig.sql}
-                            </pre>
-                        </details>
-                    )}
+                    {/* SQL toggle */}
+                    <details style={{ ...card, padding: "14px 20px", cursor: "pointer" }}>
+                        <summary style={{ fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", outline: "none", userSelect: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>Generated SQL</span>
+                            <svg width="12" height="12" fill="none" stroke="#6366f1" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                        </summary>
+                        <pre style={{ margin: "12px 0 0", padding: "14px", background: "#080a12", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)", fontSize: "11px", fontFamily: "monospace", color: "#818cf8", overflowX: "auto", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{result.sql}</pre>
+                    </details>
 
-                    {/* Tabular Dataset Card */}
-                    {data.length > 0 && (
-                        <div className="bg-[#1a1d2e] border border-[#2d3154] rounded-2xl p-6 shadow-xl space-y-4">
-                            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest border-b border-[#2d3154] pb-3">
-                                Introspection Raw Dataset ({data.length} records)
-                            </h3>
-                            <DataTable columns={columns} rows={data} pageSize={10} />
+                    {/* Data table */}
+                    {result.data.length > 0 && (
+                        <div style={{ ...card, padding: "20px 22px" }}>
+                            <p style={{ ...label, margin: "0 0 14px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                Underlying Data — {result.data.length} records
+                            </p>
+                            <DataTable columns={result.columns} rows={result.data} pageSize={10} />
                         </div>
                     )}
-                </div>
+                </>
             )}
+
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 }

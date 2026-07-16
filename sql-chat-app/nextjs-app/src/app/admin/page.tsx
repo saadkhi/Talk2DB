@@ -32,7 +32,7 @@ interface AdminData {
     activityChart: ActivityPoint[];
 }
 
-const ADMIN_EMAIL = "saadalioffic@gmail.com";
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";
 
 /* ── Helpers ─────────────────────────────────────────────── */
 function timeAgo(iso: string) {
@@ -147,7 +147,9 @@ export default function AdminPage() {
 
     /* ── Guard states ──── */
     if (status === "loading" || loading) return <LoadingScreen />;
-    if (error === "forbidden" || (status === "authenticated" && email !== ADMIN_EMAIL)) return <ForbiddenScreen />;
+    // Let the API be the single source of truth for admin access.
+    // A 403 from the API sets error="forbidden" which shows ForbiddenScreen.
+    if (error === "forbidden") return <ForbiddenScreen />;
     if (error) return <ErrorScreen message={error} onRetry={fetchData} />;
     if (!data) return null;
 
@@ -159,7 +161,7 @@ export default function AdminPage() {
     const c = containerStyle;
 
     return (
-        <div style={{ minHeight: "100vh", background: "#080a12", color: "#fff", fontFamily: "system-ui,sans-serif" }}>
+        <div style={{ minHeight: "100vh", background: "#080a12", color: "#fff" }}>
             {/* ── Top bar ── */}
             <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",

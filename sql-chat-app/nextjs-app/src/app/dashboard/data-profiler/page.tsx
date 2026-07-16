@@ -1,220 +1,135 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 
-interface ColumnProfile {
-    name: string;
-    type: string;
-    nullCount: number;
-    nullPct: number;
-    distinctCount: number;
-    anomalies: string[];
-    min?: number | null;
-    max?: number | null;
-    avg?: number | null;
-    min_date?: string;
-    max_date?: string;
+interface ColProfile {
+    name: string; type: string; nullCount: number; nullPct: number;
+    distinctCount: number; anomalies: string[];
+    min?: number | null; max?: number | null; avg?: number | null;
+    min_date?: string; max_date?: string;
     topValues?: { value: string; count: number }[];
 }
+interface TableProfile { tableName: string; totalRows: number; columns: ColProfile[]; }
 
-interface TableProfile {
-    tableName: string;
-    totalRows: number;
-    columns: ColumnProfile[];
-}
+const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
+const S = { label: { fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" } };
 
 export default function DataProfilerPage() {
-    const [tablesList, setTablesList] = useState<string[]>([]);
-    const [selectedTableName, setSelectedTableName] = useState("");
+    const [tables, setTables] = useState<string[]>([]);
+    const [selected, setSelected] = useState("");
     const [loadingTables, setLoadingTables] = useState(true);
     const [profiling, setProfiling] = useState(false);
     const [profile, setProfile] = useState<TableProfile | null>(null);
-    const [errorHeader, setErrorHeader] = useState<string | null>(null);
-    const [errorProfile, setErrorProfile] = useState<string | null>(null);
+    const [headerErr, setHeaderErr] = useState<string | null>(null);
+    const [profileErr, setProfileErr] = useState<string | null>(null);
 
-    // Load tables dropdown on mount
-    useEffect(() => {
-        async function loadTables() {
-            try {
-                const res = await fetch("/api/schema");
-                const data = await res.json();
-                if (!res.ok) {
-                    throw new Error(data.error || "Failed to introspect SQL schema");
-                }
-                const names = (data.tables || []).map((t: any) => t.name);
-                setTablesList(names);
-                if (names.length > 0) {
-                    setSelectedTableName(names[0]);
-                    handleProfileTable(names[0]);
-                }
-            } catch (err: any) {
-                console.error(err);
-                setErrorHeader(err.message || "Failed to fetch tables list.");
-            } finally {
-                setLoadingTables(false);
-            }
-        }
-        loadTables();
-    }, []);
-
-    const handleProfileTable = async (targetTable?: string) => {
-        const listTable = targetTable || selectedTableName;
-        if (!listTable) return;
-
-        setProfiling(true);
-        setErrorProfile(null);
-        setProfile(null);
-
+    const runProfile = useCallback(async (table: string) => {
+        if (!table) return;
+        setProfiling(true); setProfileErr(null); setProfile(null);
         try {
             const res = await fetch("/api/profile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tableName: listTable }),
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tableName: table }),
             });
-
             const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.error || "Failed to profile selected table");
-            }
-
+            if (!res.ok) throw new Error(data.error || "Profiling failed");
             setProfile(data);
-        } catch (err: any) {
-            console.error(err);
-            setErrorProfile(err.message || "An unexpected error occurred profiling table data.");
-        } finally {
-            setProfiling(false);
-        }
-    };
+        } catch (e: any) { setProfileErr(e.message); }
+        finally { setProfiling(false); }
+    }, []);
+
+    useEffect(() => {
+        fetch("/api/schema").then(r => r.json()).then(data => {
+            const names = (data.tables || []).map((t: any) => t.name);
+            setTables(names);
+            if (names.length) { setSelected(names[0]); runProfile(names[0]); }
+        }).catch(e => setHeaderErr(e.message)).finally(() => setLoadingTables(false));
+    }, [runProfile]);
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto">
-            <div className="flex justify-between items-start flex-wrap gap-4">
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1100px", margin: "0 auto", width: "100%" }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
                 <div>
-                    <h1 className="text-2xl font-bold text-white mb-1">Data Profiler</h1>
-                    <p className="text-gray-400 text-sm">
-                        Introspect any table structures to flag anomalies, compute column values distributions, distinct counts, and null percentages.
-                    </p>
+                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Data Profiler</h1>
+                    <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Analyze null rates, cardinality, value distributions and anomalies for any table.</p>
                 </div>
-
-                {/* Database Table selector dropdown */}
-                {!loadingTables && tablesList.length > 0 && (
-                    <div className="flex items-center gap-3 bg-[var(--bg-surface)] border border-[var(--border)] p-3 rounded-2xl shadow-lg">
-                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Select Table:</span>
-                        <select
-                            value={selectedTableName}
-                            onChange={(e) => {
-                                setSelectedTableName(e.target.value);
-                                handleProfileTable(e.target.value);
-                            }}
+                {!loadingTables && tables.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", ...card, padding: "10px 16px" }}>
+                        <span style={S.label}>Table:</span>
+                        <select value={selected}
+                            onChange={e => { setSelected(e.target.value); runProfile(e.target.value); }}
                             disabled={profiling}
-                            className="bg-[var(--bg-base)] border border-[var(--border)] text-white text-xs px-3 py-1.5 rounded-lg font-mono focus:outline-none focus:border-[var(--accent)]"
+                            style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", padding: "6px 12px", fontSize: "12px", fontFamily: "monospace", outline: "none", cursor: "pointer" }}
                         >
-                            {tablesList.map((name) => (
-                                <option key={name} value={name}>
-                                    {name}
-                                </option>
-                            ))}
+                            {tables.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
-                        <button
-                            onClick={() => handleProfileTable()}
-                            disabled={profiling}
-                            className="text-xs px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:brightness-110 text-white font-semibold transition-all disabled:opacity-40"
+                        <button onClick={() => runProfile(selected)} disabled={profiling}
+                            style={{ padding: "7px 16px", borderRadius: "8px", fontSize: "12px", fontWeight: 700, background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", color: "#818cf8", cursor: profiling ? "not-allowed" : "pointer", transition: "all 0.15s" }}
+                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.2)"}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.12)"}
                         >
-                            Reload
+                            {profiling ? "Profiling…" : "↻ Reload"}
                         </button>
                     </div>
                 )}
             </div>
 
-            {loadingTables && (
-                <div className="flex justify-center items-center py-20">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500"></div>
-                    <span className="ml-3 text-gray-400 text-sm font-semibold">Cataloging dashboard tables...</span>
-                </div>
-            )}
-
-            {errorHeader && (
-                <div className="bg-red-950/40 border border-red-800 p-4 rounded-xl text-red-300 text-sm">
-                    <p className="font-semibold">⚠ Tables Catalogue Fetch Exception</p>
-                    <p>{errorHeader}</p>
-                </div>
-            )}
-
-            {profiling && (
-                <div className="flex justify-center items-center py-20 bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl shadow-xl">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-[var(--accent)]"></div>
-                    <span className="ml-3 text-gray-400 text-sm font-semibold">Running statistical analysis on "{selectedTableName}"...</span>
-                </div>
-            )}
-
-            {errorProfile && (
-                <div className="bg-red-950/40 border border-red-800 p-4 rounded-xl text-red-300 text-sm">
-                    <p className="font-semibold">⚠ Table Profiling Exception</p>
-                    <p>{errorProfile}</p>
-                </div>
-            )}
+            {/* States */}
+            {loadingTables && <div style={{ display: "flex", alignItems: "center", gap: "10px", justifyContent: "center", padding: "60px 0", color: "#6B7280", fontSize: "13px" }}><div style={{ width: "18px", height: "18px", border: "2px solid rgba(99,102,241,0.2)", borderTop: "2px solid #6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />Loading tables…</div>}
+            {headerErr && <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "12px", padding: "12px 16px", fontSize: "12px", color: "#f87171" }}>⚠ {headerErr}</div>}
+            {profiling && <div style={{ display: "flex", alignItems: "center", gap: "10px", justifyContent: "center", padding: "60px 0", color: "#6B7280", fontSize: "13px" }}><div style={{ width: "18px", height: "18px", border: "2px solid rgba(99,102,241,0.2)", borderTop: "2px solid #6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />Running analysis on "{selected}"…</div>}
+            {profileErr && <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "12px", padding: "12px 16px", fontSize: "12px", color: "#f87171" }}>⚠ {profileErr}</div>}
 
             {profile && !profiling && (
-                <div className="space-y-6">
-                    {/* Overview Info Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                        <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-5 rounded-2xl shadow-xl space-y-2">
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest block">Table Name</span>
-                            <span className="text-xl font-bold text-white font-mono break-all">{profile.tableName}</span>
-                        </div>
-                        <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-5 rounded-2xl shadow-xl space-y-2">
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest block">Total Records</span>
-                            <span className="text-3xl font-extrabold text-indigo-400">{profile.totalRows.toLocaleString()}</span>
-                        </div>
-                        <div className="bg-[var(--bg-surface)] border border-[var(--border)] p-5 rounded-2xl shadow-xl space-y-2">
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest block">Total Columns</span>
-                            <span className="text-3xl font-extrabold text-indigo-400">{profile.columns.length}</span>
-                        </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                    {/* Summary cards */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "14px" }}>
+                        {[
+                            { label: "Table", value: profile.tableName, mono: true, color: "#818cf8" },
+                            { label: "Total Rows", value: profile.totalRows.toLocaleString(), color: "#34d399" },
+                            { label: "Columns", value: profile.columns.length, color: "#f59e0b" },
+                        ].map(c => (
+                            <div key={c.label} style={{ ...card, padding: "18px 20px" }}>
+                                <p style={{ ...S.label, margin: "0 0 6px" }}>{c.label}</p>
+                                <p style={{ fontSize: c.label === "Table" ? "14px" : "26px", fontWeight: 800, color: c.color, margin: 0, fontFamily: c.mono ? "monospace" : "inherit", wordBreak: "break-all" }}>{String(c.value)}</p>
+                            </div>
+                        ))}
                     </div>
 
-                    {/* Detailed Columns Table */}
-                    <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-6 shadow-xl space-y-4">
-                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-widest border-b border-[var(--border)] pb-3">
-                            Column Analytics & Quality Profiles
-                        </h3>
-                        <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-base)]">
-                            <table className="w-full text-sm">
-                                <thead className="bg-[var(--bg-surface)]">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-gray-400 font-semibold text-xs uppercase tracking-wider">Column</th>
-                                        <th className="px-4 py-3 text-left text-gray-400 font-semibold text-xs uppercase tracking-wider">Type</th>
-                                        <th className="px-4 py-3 text-center text-gray-400 font-semibold text-xs uppercase tracking-wider">Nulls % (Count)</th>
-                                        <th className="px-4 py-3 text-center text-gray-400 font-semibold text-xs uppercase tracking-wider">Distinct Cardinality</th>
-                                        <th className="px-4 py-3 text-right text-gray-400 font-semibold text-xs uppercase tracking-wider">Quality Flags</th>
+                    {/* Columns table */}
+                    <div style={{ ...card, padding: "20px 22px" }}>
+                        <p style={{ ...S.label, margin: "0 0 14px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Column Analysis</p>
+                        <div style={{ overflowX: "auto", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.07)" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                                <thead>
+                                    <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                                        {["Column", "Type", "Nulls %", "Distinct", "Quality"].map(h => (
+                                            <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.07em" }}>{h}</th>
+                                        ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {profile.columns.map((col) => (
-                                        <tr key={col.name} className="border-t border-[var(--border)] hover:bg-[var(--bg-surface)] transition-colors">
-                                            <td className="px-4 py-4 text-xs text-white font-semibold font-mono">{col.name}</td>
-                                            <td className="px-4 py-4 text-xs text-[#22d3ee] font-mono">{col.type}</td>
-                                            <td className="px-4 py-4 text-center">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-xs text-gray-300 font-semibold">{col.nullPct}%</span>
-                                                    <span className="text-[10px] text-gray-500">({col.nullCount} nulls)</span>
+                                    {profile.columns.map(col => (
+                                        <tr key={col.name} style={{ borderTop: "1px solid rgba(255,255,255,0.05)", transition: "background 0.1s" }}
+                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"}
+                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
+                                        >
+                                            <td style={{ padding: "10px 14px", fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>{col.name}</td>
+                                            <td style={{ padding: "10px 14px", fontFamily: "monospace", color: "#22d3ee" }}>{col.type}</td>
+                                            <td style={{ padding: "10px 14px" }}>
+                                                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                                    <span style={{ fontWeight: 700, color: col.nullPct > 50 ? "#f87171" : "#D1D5DB" }}>{col.nullPct}%</span>
+                                                    <span style={{ fontSize: "10px", color: "#4B5563" }}>({col.nullCount} nulls)</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4 text-center text-xs font-semibold text-gray-300">
-                                                {col.distinctCount.toLocaleString()}
-                                            </td>
-                                            <td className="px-4 py-4 text-right">
-                                                {col.anomalies.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-1.5 justify-end">
-                                                        {col.anomalies.map((anom, i) => (
-                                                            <span key={i} className="text-[9px] font-bold px-2 py-0.5 rounded bg-red-950/20 text-[#ef4444] border border-red-900/40">
-                                                                {anom}
-                                                            </span>
-                                                        ))}
+                                            <td style={{ padding: "10px 14px", color: "#9CA3AF", fontFamily: "monospace" }}>{col.distinctCount.toLocaleString()}</td>
+                                            <td style={{ padding: "10px 14px" }}>
+                                                {col.anomalies.length > 0
+                                                    ? <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                                        {col.anomalies.map((a, i) => <span key={i} style={{ fontSize: "9px", fontWeight: 700, padding: "2px 7px", borderRadius: "4px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>{a}</span>)}
                                                     </div>
-                                                ) : (
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950/20 text-[#10b981] border border-emerald-900/40 whitespace-nowrap">
-                                                        ✓ Quality Standard
-                                                    </span>
-                                                )}
+                                                    : <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "4px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399" }}>✓ Clean</span>
+                                                }
                                             </td>
                                         </tr>
                                     ))}
@@ -223,101 +138,75 @@ export default function DataProfilerPage() {
                         </div>
                     </div>
 
-                    {/* Specialized Column Profiles Block */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {profile.columns.some((c) => c.min != null || c.min_date != null) && (
-                            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-6 shadow-xl space-y-4">
-                                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest border-b border-[var(--border)] pb-3">
-                                    Numeric & Date Ranges Analytics
-                                </h3>
-                                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
-                                    {profile.columns.map((col) => {
-                                        if (col.min != null) {
-                                            return (
-                                                <div key={col.name} className="p-3 bg-[var(--bg-base)] rounded-xl border border-[var(--border)] space-y-2">
-                                                    <span className="text-xs font-bold text-white font-mono">{col.name} ({col.type})</span>
-                                                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                                        <div className="bg-[var(--bg-surface)] p-1.5 rounded border border-[var(--border)]">
-                                                            <span className="text-gray-500 block text-[10px]">MIN</span>
-                                                            <span className="font-semibold text-gray-300 font-mono">{col.min.toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="bg-[var(--bg-surface)] p-1.5 rounded border border-[var(--border)]">
-                                                            <span className="text-gray-500 block text-[10px]">AVG</span>
-                                                            <span className="font-semibold text-indigo-400 font-mono">{col.avg ? col.avg.toFixed(2) : "—"}</span>
-                                                        </div>
-                                                        <div className="bg-[var(--bg-surface)] p-1.5 rounded border border-[var(--border)]">
-                                                            <span className="text-gray-500 block text-[10px]">MAX</span>
-                                                            <span className="font-semibold text-gray-300 font-mono">{col.max != null ? col.max.toLocaleString() : "—"}</span>
-                                                        </div>
+                    {/* Numeric / Date ranges */}
+                    {profile.columns.some(c => c.min != null || c.min_date != null) && (
+                        <div style={{ ...card, padding: "20px 22px" }}>
+                            <p style={{ ...S.label, margin: "0 0 14px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Numeric & Date Ranges</p>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: "12px" }}>
+                                {profile.columns.map(col => {
+                                    if (col.min != null) return (
+                                        <div key={col.name} style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
+                                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#fff", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name} <span style={{ color: "#22d3ee", fontWeight: 400 }}>({col.type})</span></p>
+                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", textAlign: "center" }}>
+                                                {[["MIN", col.min?.toLocaleString() ?? "—", "#9CA3AF"], ["AVG", col.avg?.toFixed(2) ?? "—", "#818cf8"], ["MAX", col.max?.toLocaleString() ?? "—", "#9CA3AF"]].map(([l, v, c]) => (
+                                                    <div key={l as string} style={{ background: "rgba(255,255,255,0.03)", borderRadius: "6px", padding: "8px 4px" }}>
+                                                        <p style={{ fontSize: "9px", color: "#4B5563", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{l as string}</p>
+                                                        <p style={{ fontSize: "13px", fontWeight: 700, color: c as string, fontFamily: "monospace", margin: 0 }}>{v as string}</p>
                                                     </div>
-                                                </div>
-                                            );
-                                        }
-                                        if (col.min_date) {
-                                            return (
-                                                <div key={col.name} className="p-3 bg-[var(--bg-base)] rounded-xl border border-[var(--border)] space-y-2">
-                                                    <span className="text-xs font-bold text-white font-mono">{col.name} ({col.type})</span>
-                                                    <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                                                        <div className="bg-[var(--bg-surface)] p-1.5 rounded border border-[var(--border)]">
-                                                            <span className="text-gray-500 block text-[10px]">EARLIEST DATE</span>
-                                                            <span className="font-semibold text-gray-300 font-mono text-[10px]">
-                                                                {new Date(col.min_date).toLocaleDateString()}
-                                                            </span>
-                                                        </div>
-                                                        <div className="bg-[var(--bg-surface)] p-1.5 rounded border border-[var(--border)]">
-                                                            <span className="text-gray-500 block text-[10px]">LATEST DATE</span>
-                                                            <span className="font-semibold text-gray-300 font-mono text-[10px]">
-                                                                {new Date(col.max_date!).toLocaleDateString()}
-                                                            </span>
-                                                        </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                    if (col.min_date) return (
+                                        <div key={col.name} style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
+                                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#fff", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name}</p>
+                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                                                {[["Earliest", col.min_date], ["Latest", col.max_date]].map(([l, v]) => (
+                                                    <div key={l as string} style={{ background: "rgba(255,255,255,0.03)", borderRadius: "6px", padding: "8px" }}>
+                                                        <p style={{ fontSize: "9px", color: "#4B5563", margin: "0 0 4px", textTransform: "uppercase" }}>{l as string}</p>
+                                                        <p style={{ fontSize: "11px", color: "#D1D5DB", fontFamily: "monospace", margin: 0 }}>{v ? new Date(v as string).toLocaleDateString() : "—"}</p>
                                                     </div>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    })}
-                                </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                    return null;
+                                })}
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {profile.columns.some((c) => c.topValues && c.topValues.length > 0) && (
-                            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-6 shadow-xl space-y-4">
-                                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest border-b border-[var(--border)] pb-3">
-                                    String Columns Top Distributions
-                                </h3>
-                                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
-                                    {profile.columns.map((col) => {
-                                        if (col.topValues && col.topValues.length > 0) {
-                                            return (
-                                                <div key={col.name} className="p-3 bg-[var(--bg-base)] rounded-xl border border-[var(--border)] space-y-2">
-                                                    <span className="text-xs font-bold text-white font-mono">{col.name}</span>
-                                                    <div className="space-y-1.5">
-                                                        {col.topValues.map((v, i) => {
-                                                            const pct = profile.totalRows > 0 ? Math.round((v.count / profile.totalRows) * 100) : 0;
-                                                            return (
-                                                                <div key={i} className="flex items-center justify-between text-xs gap-3">
-                                                                    <span className="text-gray-400 truncate max-w-[150px] font-mono">{v.value || "[empty]"}</span>
-                                                                    <div className="flex-1 bg-[var(--bg-surface)] h-2.5 rounded-full overflow-hidden border border-[var(--border)] max-w-[150px]">
-                                                                        <div className="bg-[var(--accent)] h-full" style={{ width: `${pct}%` }}></div>
-                                                                    </div>
-                                                                    <span className="text-[10px] text-gray-500 font-semibold whitespace-nowrap">
-                                                                        {v.count} ({pct}%)
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        })}
+                    {/* Top string values */}
+                    {profile.columns.some(c => c.topValues?.length) && (
+                        <div style={{ ...card, padding: "20px 22px" }}>
+                            <p style={{ ...S.label, margin: "0 0 14px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Top Value Distributions</p>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "12px" }}>
+                                {profile.columns.filter(c => c.topValues?.length).map(col => (
+                                    <div key={col.name} style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
+                                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#fff", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name}</p>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+                                            {col.topValues!.map((v, i) => {
+                                                const pct = profile.totalRows > 0 ? Math.round((v.count / profile.totalRows) * 100) : 0;
+                                                return (
+                                                    <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                        <span style={{ fontSize: "11px", color: "#9CA3AF", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "0 0 120px" }}>{v.value || "[empty]"}</span>
+                                                        <div style={{ flex: 1, height: "6px", background: "rgba(255,255,255,0.05)", borderRadius: "3px", overflow: "hidden" }}>
+                                                            <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,#6366f1,#8b5cf6)", borderRadius: "3px" }} />
+                                                        </div>
+                                                        <span style={{ fontSize: "10px", color: "#4B5563", whiteSpace: "nowrap", flexShrink: 0 }}>{v.count} ({pct}%)</span>
                                                     </div>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    })}
-                                </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             )}
+
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
     );
 }
