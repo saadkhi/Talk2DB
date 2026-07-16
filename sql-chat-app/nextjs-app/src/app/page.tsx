@@ -24,7 +24,7 @@ export default function Home() {
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "#0f1117",
-        fontFamily: "Inter, Roboto, sans-serif",
+        fontFamily: "var(--font-main, 'Satoshi', system-ui, sans-serif)",
       }}
     >
       <div
