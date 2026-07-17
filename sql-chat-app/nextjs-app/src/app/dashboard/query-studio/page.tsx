@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import DataTable from "@/components/data/DataTable";
+import SQLEditor from "@/components/SQLEditor";
 
 const EXAMPLES = [
     "Show the top 10 most recent users",
@@ -61,22 +62,12 @@ export default function QueryStudioPage() {
             <div style={{ ...S.card, padding: "22px 24px" }}>
                 <form onSubmit={e => { e.preventDefault(); runQuery(prompt); }} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                     <label style={S.label}>Natural Language Prompt</label>
-                    <textarea
+                    <SQLEditor
                         value={prompt}
-                        onChange={e => setPrompt(e.target.value)}
+                        onChange={setPrompt}
                         placeholder="e.g. Find all users who joined this month and show their email and created date..."
                         disabled={loading}
-                        required
-                        rows={4}
-                        style={{
-                            background: "#080a12", border: "1px solid rgba(255,255,255,0.08)",
-                            color: "#fff", padding: "14px 16px", borderRadius: "10px",
-                            fontSize: "14px", fontFamily: "inherit", lineHeight: 1.65,
-                            resize: "vertical", outline: "none", transition: "border-color 0.15s",
-                            width: "100%", boxSizing: "border-box",
-                        }}
-                        onFocus={e => (e.currentTarget.style.borderColor = "#6366f1")}
-                        onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
+                        minHeight={120}
                     />
 
                     {/* Example chips + submit */}
@@ -148,7 +139,9 @@ export default function QueryStudioPage() {
                         fontSize: "12px", fontFamily: "'Geist Mono', monospace", color: "#818cf8",
                         overflowX: "auto", whiteSpace: "pre-wrap", lineHeight: 1.75,
                     }}>{sql}</pre>
-                </div>
+                    <p style={{ fontSize: "10px", color: "#374151", margin: "8px 0 0" }}>
+                        💡 The SQL above is read-only. Edit your prompt above to regenerate.
+                    </p>                </div>
             )}
 
             {/* Results */}
