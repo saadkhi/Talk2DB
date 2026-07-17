@@ -106,7 +106,7 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
         <>
             {/* Backdrop */}
             <div
-                onClick={dbConnected ? onClose : undefined}
+                onClick={onClose}
                 style={{
                     position: "fixed", inset: 0, zIndex: 100,
                     background: "rgba(0,0,0,0.75)",

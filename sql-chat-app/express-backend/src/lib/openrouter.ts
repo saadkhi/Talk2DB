@@ -4,6 +4,10 @@ export async function callOpenRouter(systemPrompt: string, userMessage: string):
         const apiKey = process.env.OPENROUTER_API_KEY;
         const model = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
 
+        if (!apiKey) {
+            throw new Error("OPENROUTER_API_KEY is not configured. Add it to your .env file — get a free key at https://openrouter.ai/keys");
+        }
+
         const response = await fetch(`${baseUrl}/chat/completions`, {
             method: "POST",
             headers: {

@@ -91,7 +91,9 @@ export async function POST(req: Request) {
                             count: parseInt(r.count),
                         }));
                     } catch (eStr) {
-                        console.warn(`String profiling top-value calculation failed for ${column_name}:`, eStr);
+                        if (process.env.NODE_ENV !== 'production') {
+                            console.warn(`String profiling top-value calculation failed for ${column_name}:`, eStr);
+                        }
                     }
                 }
 
@@ -107,7 +109,9 @@ export async function POST(req: Request) {
                             max_date: dateResult.rows[0].max_date,
                         };
                     } catch (eDate) {
-                        console.warn(`Date profiling statistical calculation failed for ${column_name}:`, eDate);
+                        if (process.env.NODE_ENV !== 'production') {
+                            console.warn(`Date profiling statistical calculation failed for ${column_name}:`, eDate);
+                        }
                     }
                 }
 

@@ -180,14 +180,6 @@ export default function Sidebar({ isCollapsed, isMobileOpen, onCloseMobile, onTo
             background: "rgba(255,255,255,0.05)",
             margin: "8px 0",
         },
-        sectionLabel: {
-            fontSize: "10px",
-            fontWeight: 700,
-            color: "#374151",
-            textTransform: "uppercase" as const,
-            letterSpacing: "0.08em",
-            padding: "4px 10px 2px",
-        },
         proTip: {
             margin: "0 8px 8px",
             padding: "10px 12px",
