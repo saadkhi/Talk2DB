@@ -3,16 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.1.10'],
   async rewrites() {
-    return [
-      {
-        source: '/api/chat',
-        destination: `${process.env.EXPRESS_URL || 'http://localhost:8000'}/api/chat`,
-      },
-      {
-        source: '/api/query',
-        destination: `${process.env.EXPRESS_URL || 'http://localhost:8000'}/api/query`,
-      },
-    ];
+    // All API routes are now native Next.js — no Express proxy needed.
+    // The Express backend (port 8000) is no longer required to run.
+    return [];
   },
   async headers() {
     return [

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { getUserDbPool } from "@/lib/dbConnection";
+import { resolveUserWithDb } from "@/lib/resolveUser";
 
 export async function POST(req: Request) {
     try {
@@ -16,8 +16,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid table name format" }, { status: 400 });
         }
 
-        const userId = (session.user as any).id;
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await resolveUserWithDb(session);
         if (!user?.dbConnectionString) {
             return NextResponse.json({ error: "No database connected" }, { status: 400 });
         }

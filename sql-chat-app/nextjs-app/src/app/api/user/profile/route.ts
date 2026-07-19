@@ -3,34 +3,63 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import type { Session } from "next-auth";
 
-export async function GET(req: Request) {
+/** Resolve the real DB user from a session, using email as a fallback. */
+async function resolveUser(session: Session) {
+    const tokenId = (session.user as any).id as string | undefined;
+
+    // Try by id first
+    if (tokenId) {
+        const user = await prisma.user.findUnique({
+            where: { id: tokenId },
+            select: { id: true, name: true, email: true, dbConnectionString: true, dbDialect: true, password: true },
+        });
+        if (user) return user;
+    }
+
+    // Fallback: look up by email
+    const email = session.user?.email;
+    if (email) {
+        return prisma.user.findUnique({
+            where: { email },
+            select: { id: true, name: true, email: true, dbConnectionString: true, dbDialect: true, password: true },
+        });
+    }
+
+    return null;
+}
+
+export async function GET() {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const userId = (session.user as any).id;
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true, name: true, email: true, dbConnectionString: true, dbDialect: true },
-        });
+        const user = await resolveUser(session);
 
         if (!user) {
+            // Session exists but no DB row yet (e.g. OAuth race condition)
             return NextResponse.json({
-                id: userId, name: session.user.name, email: session.user.email,
-                dbConnectionString: null, dbDialect: "postgresql",
+                id: (session.user as any).id ?? null,
+                name: session.user.name ?? null,
+                email: session.user.email ?? null,
+                dbConnectionString: null,
+                dbDialect: null,
             });
         }
 
         return NextResponse.json({
-            id: user.id, name: user.name, email: user.email,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            // Never expose the encrypted value — just signal presence
             dbConnectionString: user.dbConnectionString ? "[ENCRYPTED_CONNECTION_STRING]" : null,
             dbDialect: user.dbDialect,
         });
     } catch (error: any) {
-        if (process.env.NODE_ENV !== 'production') console.error("Profile fetch error:", error);
+        if (process.env.NODE_ENV !== "production") console.error("Profile GET error:", error);
         return NextResponse.json({ error: error.message || "Failed to fetch profile" }, { status: 500 });
     }
 }
@@ -42,10 +71,13 @@ export async function PATCH(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const userId = (session.user as any).id;
+        const user = await resolveUser(session);
+        if (!user) {
+            return NextResponse.json({ error: "Account not found. Please sign out and sign back in." }, { status: 404 });
+        }
+
         const body = await req.json();
         const { name, currentPassword, newPassword } = body;
-
         const updateData: Record<string, any> = {};
 
         if (name !== undefined) {
@@ -56,9 +88,7 @@ export async function PATCH(req: Request) {
         if (newPassword !== undefined) {
             if (!currentPassword) return NextResponse.json({ error: "Current password is required" }, { status: 400 });
             if (newPassword.length < 8) return NextResponse.json({ error: "New password must be at least 8 characters" }, { status: 400 });
-
-            const user = await prisma.user.findUnique({ where: { id: userId }, select: { password: true } });
-            if (!user?.password) return NextResponse.json({ error: "Cannot change password for OAuth accounts" }, { status: 400 });
+            if (!user.password) return NextResponse.json({ error: "Cannot change password for OAuth accounts" }, { status: 400 });
 
             const valid = await bcrypt.compare(currentPassword, user.password);
             if (!valid) return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
@@ -71,14 +101,14 @@ export async function PATCH(req: Request) {
         }
 
         const updated = await prisma.user.update({
-            where: { id: userId },
+            where: { id: user.id },
             data: updateData,
             select: { id: true, name: true, email: true },
         });
 
         return NextResponse.json({ success: true, user: updated });
     } catch (error: any) {
-        if (process.env.NODE_ENV !== 'production') console.error("Profile update error:", error);
+        if (process.env.NODE_ENV !== "production") console.error("Profile PATCH error:", error);
         return NextResponse.json({ error: error.message || "Failed to update profile" }, { status: 500 });
     }
 }

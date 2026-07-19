@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { callOpenRouter } from "@/lib/openrouter";
+import { callLLM } from "@/lib/llm";
 
 export async function POST(req: Request) {
     try {
@@ -36,8 +36,8 @@ export async function POST(req: Request) {
         };
 
         try {
-            const raw = await callOpenRouter(
-                "You are a senior data analyst and product consultant. Return ONLY a single valid JSON block containing title, summary, insights, and recommendations keys.",
+            const raw = await callLLM(
+                "You are a senior data analyst. Return ONLY a single valid JSON block containing title, summary, insights, and recommendations keys.",
                 narrativePrompt
             );
 

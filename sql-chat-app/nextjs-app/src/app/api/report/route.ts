@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { generateSQL } from "@/lib/sqlModel";
-import { callOpenRouter } from "@/lib/openrouter";
+import { callLLM } from "@/lib/llm";
 import { executeQuery } from "@/lib/dbConnection";
 import { extractSQL, isSQLSafe } from "@/lib/sqlSafety";
 import { getSchema } from "../schema/route";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
+import { resolveUserWithDb } from "@/lib/resolveUser";
 
 export async function POST(req: Request) {
     // Rate limiting
@@ -43,10 +43,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Prompt required" }, { status: 400 });
         }
 
-        const userId = (session.user as any).id;
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await resolveUserWithDb(session);
         if (!user?.dbConnectionString) {
-            return NextResponse.json({ error: "No DB connected" }, { status: 400 });
+            return NextResponse.json({ error: "No database connected. Click 'Not Connected' to add your database." }, { status: 400 });
         }
 
         let schemaContext = "";
@@ -75,8 +74,8 @@ export async function POST(req: Request) {
         try {
             rawSQL = await generateSQL(modelPrompt);
         } catch {
-            rawSQL = await callOpenRouter(
-                "You are an expert SQL compiler. Return ONLY a single raw SQL query, no comments, no markdown code blocks, no explanation.",
+            rawSQL = await callLLM(
+                "You are an expert SQL compiler. Return ONLY a single raw SQL query, no comments, no markdown, no explanation.",
                 modelPrompt
             );
         }
@@ -90,12 +89,10 @@ export async function POST(req: Request) {
 
         const { columns, rows } = await executeQuery(user.dbConnectionString, safeSql);
 
-        // Step 2: Get chart config
-        const chartRaw = await callOpenRouter(
-            "You are a Recharts configuration engine. Return ONLY a single JSON block (no markdown, no quotes around outer object, no extra text).",
-            `Given columns: [${columns.join(
-                ", "
-            )}] and this report request: "${prompt}", return: {"chartType":"bar|line|pie|area","xKey":"axis_column","yKeys":["value_column"],"title":"Descriptive title"}`
+        // Step 2: Get chart config via LLM
+        const chartRaw = await callLLM(
+            "You are a Recharts configuration engine. Return ONLY a single JSON block (no markdown, no extra text).",
+            `Given columns: [${columns.join(", ")}] and this report request: "${prompt}", return: {"chartType":"bar|line|pie|area","xKey":"axis_column","yKeys":["value_column"],"title":"Descriptive title"}`
         );
 
         let chartConfig = {
