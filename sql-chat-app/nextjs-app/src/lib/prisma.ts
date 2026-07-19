@@ -1,51 +1,23 @@
-function sanitizeUrl(url: string | undefined): string | undefined {
-    if (!url) return undefined;
-    let sanitized = url.trim();
-
-    // Check if it's a psql command like: psql 'postgresql://...'
-    if (sanitized.toLowerCase().startsWith("psql ")) {
-        const matches = sanitized.match(/(?:postgresql|postgres):\/\/[^\s'"]+/i);
-        if (matches) {
-            sanitized = matches[0];
-        }
-    }
-
-    // Recursively remove wrapping quotes
-    while (
-        (sanitized.startsWith('"') && sanitized.endsWith('"')) ||
-        (sanitized.startsWith("'") && sanitized.endsWith("'")) ||
-        (sanitized.startsWith("`") && sanitized.endsWith("`"))
-    ) {
-        sanitized = sanitized.slice(1, -1).trim();
-    }
-
-    return sanitized;
-}
-
-const rawUrl = process.env.DATABASE_URL;
-const sanitizedUrl = sanitizeUrl(rawUrl);
-
-if (sanitizedUrl) {
-    // Basic validation
-    if (!sanitizedUrl.startsWith("postgresql://") && !sanitizedUrl.startsWith("postgres://")) {
-        // In production, use proper logging service instead of console.error
-        if (process.env.NODE_ENV !== 'production') {
-            console.error("CRITICAL: DATABASE_URL does not start with a valid protocol (postgresql:// or postgres://).");
-            const masked = sanitizedUrl.replace(/:[^:@]+@/, ":****@");
-            console.error(`Malformed URL detected: "${masked.substring(0, 20)}..."`);
-        }
-        throw new Error("Invalid DATABASE_URL: must start with postgresql:// or postgres://");
-    }
-    process.env.DATABASE_URL = sanitizedUrl;
-}
-
 import { PrismaClient } from "@prisma/client";
+
+// Ensure DATABASE_URL is set before creating the client.
+// sanitizeConnectionString is intentionally NOT called here —
+// the app's own DATABASE_URL should always be a clean URL already.
+// User-supplied connection strings are sanitized in connect-db/route.ts.
+if (!process.env.DATABASE_URL) {
+    throw new Error(
+        "DATABASE_URL is not set. Add it to your .env file.\n" +
+        "Example: DATABASE_URL=\"postgresql://user:pass@host/db?sslmode=require\""
+    );
+}
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-export const prisma = globalForPrisma.prisma || new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL,
-});
+export const prisma =
+    globalForPrisma.prisma ??
+    new PrismaClient({
+        datasourceUrl: process.env.DATABASE_URL,
+    });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 

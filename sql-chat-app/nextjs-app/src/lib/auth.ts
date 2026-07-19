@@ -42,7 +42,27 @@ export const authOptions: NextAuthOptions = {
     ],
     callbacks: {
         async jwt({ token, user }) {
-            if (user) token.id = user.id;
+            // On first sign-in, `user` is populated — store the DB id in the token
+            if (user?.id) {
+                token.id = user.id;
+                return token;
+            }
+            // On subsequent requests, `user` is undefined.
+            // If token.id is already set, we're done.
+            if (token.id) return token;
+            // Safety net: if token.id is missing (e.g. old session, OAuth flow),
+            // look up the user by email so all API routes get a valid userId.
+            if (token.email) {
+                try {
+                    const dbUser = await prisma.user.findUnique({
+                        where: { email: token.email },
+                        select: { id: true },
+                    });
+                    if (dbUser) token.id = dbUser.id;
+                } catch {
+                    // DB unreachable — keep token as-is, API routes will handle the error
+                }
+            }
             return token;
         },
         async session({ session, token }) {

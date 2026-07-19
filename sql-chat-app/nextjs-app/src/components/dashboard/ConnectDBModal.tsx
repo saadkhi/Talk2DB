@@ -191,7 +191,7 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                     </div>
 
                     <p style={{ fontSize: "13px", color: "#6B7280", lineHeight: 1.6, marginBottom: "22px" }}>
-                        Paste your connection string below. It's encrypted with AES-256 and stored securely — never logged or shared.
+                        Paste your connection string below — or the full <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: "4px", fontSize: "11px", fontFamily: "monospace" }}>psql '...'</code> command. It's encrypted with AES-256 and stored securely — never logged or shared.
                     </p>
 
                     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>

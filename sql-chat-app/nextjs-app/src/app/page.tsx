@@ -61,7 +61,7 @@ export default function Home() {
           </span>
         </div>
       </div>
-      <style jsx global>{`
+      <style>{`
         @keyframes spin {
           to {
             transform: rotate(360deg);
