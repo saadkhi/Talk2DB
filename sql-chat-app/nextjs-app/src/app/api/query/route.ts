@@ -1,33 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
-import { generateSQL } from "@/lib/sqlModel";
 import { callLLM } from "@/lib/llm";
 import { executeQuery, getUserDbPool } from "@/lib/dbConnection";
 import { isSQLSafe, extractSQL } from "@/lib/sqlSafety";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
-import type { Session } from "next-auth";
-
-/** Resolve the real DB user row using id-first, email-fallback strategy. */
-async function resolveUser(session: Session) {
-    const tokenId = (session.user as any).id as string | undefined;
-    if (tokenId) {
-        const user = await prisma.user.findUnique({
-            where: { id: tokenId },
-            select: { id: true, dbConnectionString: true, dbDialect: true },
-        });
-        if (user) return user;
-    }
-    const email = session.user?.email;
-    if (email) {
-        return prisma.user.findUnique({
-            where: { email },
-            select: { id: true, dbConnectionString: true, dbDialect: true },
-        });
-    }
-    return null;
-}
+import { resolveUserWithDb } from "@/lib/resolveUser";
 
 async function getSchemaContext(encryptedUrl: string): Promise<string> {
     try {
@@ -55,7 +33,6 @@ async function getSchemaContext(encryptedUrl: string): Promise<string> {
 }
 
 export async function POST(req: Request) {
-    // Rate limit
     const identifier = getIdentifier(req);
     const rl = rateLimit(identifier, RATE_LIMITS.query.limit, RATE_LIMITS.query.windowMs);
     if (!rl.success) {
@@ -80,9 +57,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
         }
 
-        const user = await resolveUser(session);
+        const user = await resolveUserWithDb(session);
         if (!user?.dbConnectionString) {
-            return NextResponse.json({ error: "No database connected. Click 'Not Connected' in the top bar to add your database." }, { status: 400 });
+            return NextResponse.json({
+                error: "No database connected. Click 'Not Connected' in the top bar to connect your database."
+            }, { status: 400 });
         }
 
         const dialect = user.dbDialect || "postgresql";
@@ -90,29 +69,41 @@ export async function POST(req: Request) {
 
         const dialectInstructions: Record<string, string> = {
             postgresql: "Generate a syntactically correct PostgreSQL SELECT query. Use double-quoted identifiers for names with spaces.",
-            mysql: "Generate a syntactically correct MySQL SELECT query. Use backtick-quoted identifiers. Do NOT use PostgreSQL-specific functions.",
-            sqlite: "Generate a syntactically correct SQLite SELECT query. Avoid ARRAY_AGG, DATE_TRUNC — use strftime instead.",
+            mysql:      "Generate a syntactically correct MySQL SELECT query. Use backtick-quoted identifiers. Do NOT use PostgreSQL-specific functions.",
+            sqlite:     "Generate a syntactically correct SQLite SELECT query. Avoid ARRAY_AGG and DATE_TRUNC — use strftime instead.",
         };
         const dialectHint = dialectInstructions[dialect] ?? dialectInstructions.postgresql;
 
-        const systemPrompt = `You are a high-performance ${dialect.toUpperCase()} query compiler. ${dialectHint}\nReturn ONLY raw SQL query text. No markdown, no comments, no explanations. Pure SELECT SQL only.`;
+        const systemPrompt = `You are a ${dialect.toUpperCase()} SQL expert. ${dialectHint}
+Return ONLY the raw SQL SELECT query text with NO markdown code blocks, NO comments, NO explanation.
+Just the pure SQL query on one or multiple lines.`;
+
         const userMessage = schemaContext
             ? `Database Schema:\n${schemaContext}\n\nUser Request: ${prompt}\n\nGenerate SQL SELECT query.`
             : `User Request: ${prompt}\n\nGenerate SQL SELECT query.`;
 
-        let rawSQL = "";
+        let rawSQL: string;
         try {
-            rawSQL = await generateSQL(userMessage);
-        } catch {
             rawSQL = await callLLM(systemPrompt, userMessage);
+        } catch (e: any) {
+            if (process.env.NODE_ENV !== "production") {
+                console.error("LLM call failed:", e);
+            }
+            return NextResponse.json({
+                error: e.message || "AI service unavailable. Please set OPENROUTER_API_KEY in your .env file."
+            }, { status: 503 });
         }
 
         const sql = extractSQL(rawSQL);
         if (!sql) {
-            return NextResponse.json({ error: "AI returned an empty query. Try rephrasing your request." }, { status: 400 });
+            return NextResponse.json({
+                error: "AI returned an empty query. Try rephrasing your request."
+            }, { status: 400 });
         }
         if (!isSQLSafe(sql)) {
-            return NextResponse.json({ error: "Generated query contains unsafe operations." }, { status: 400 });
+            return NextResponse.json({
+                error: "Generated query contains unsafe operations. Only SELECT queries are allowed."
+            }, { status: 400 });
         }
 
         const safeSql = /\bLIMIT\b/i.test(sql) ? sql : `${sql} LIMIT 500`;
@@ -127,6 +118,8 @@ export async function POST(req: Request) {
         if (process.env.NODE_ENV !== "production") {
             console.error("Query route error:", error);
         }
-        return NextResponse.json({ error: error.message || "Query generation failed" }, { status: 500 });
+        return NextResponse.json({
+            error: error.message || "Query generation failed"
+        }, { status: 500 });
     }
 }
