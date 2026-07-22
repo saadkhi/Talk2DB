@@ -5,18 +5,20 @@ const ALGORITHM = "aes-256-cbc";
 function getKey(): Buffer {
     const envKey = process.env.DB_ENCRYPTION_KEY;
     if (!envKey) {
-        throw new Error("DB_ENCRYPTION_KEY environment variable is required for database connection string encryption");
+        throw new Error(
+            "Server configuration error: DB_ENCRYPTION_KEY is not set. " +
+            "Please contact the administrator to add this environment variable on Vercel."
+        );
     }
-    
-    try {
-        const key = Buffer.from(envKey, "hex");
-        if (key.length !== 32) {
-            throw new Error("DB_ENCRYPTION_KEY must be a 32-byte hex string (64 hex characters)");
-        }
-        return key;
-    } catch (e) {
-        throw new Error("Invalid DB_ENCRYPTION_KEY format: must be a 32-byte hex string");
+
+    const key = Buffer.from(envKey, "hex");
+    if (key.length !== 32) {
+        throw new Error(
+            "Server configuration error: DB_ENCRYPTION_KEY must be a 64-character hex string. " +
+            "Please check the Vercel environment variable."
+        );
     }
+    return key;
 }
 
 export function encrypt(text: string): string {
