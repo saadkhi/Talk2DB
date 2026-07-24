@@ -24,6 +24,8 @@ async function callAPIFreeLLM(
             "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({ message: combinedMessage }),
+        // Free tier has a 20-second rate limit — give it up to 60s to respond
+        signal: AbortSignal.timeout(60000),
     });
 
     if (response.status === 429) {
