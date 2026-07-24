@@ -1,51 +1,53 @@
 /**
  * llm.ts — LLM client for Talk2DB
  *
- * Primary:  APIFreeLLM (apifreellm.com) — free, no credit card
- * Fallback: OpenRouter (openrouter.ai)   — free tier available
+ * Provider priority:
+ *  1. Google Gemini API  — free, fast, 15 RPM, no credit card needed
+ *  2. APIFreeLLM         — free but 20s delay (unusable on Vercel 10s limit)
+ *  3. OpenRouter         — fallback if Gemini key not set
+ *
+ * Get a free Gemini key at: https://aistudio.google.com/apikey
  */
 
-// ── APIFreeLLM ─────────────────────────────────────────────────────────────
-async function callAPIFreeLLM(
+// ── Google Gemini ──────────────────────────────────────────────────────────
+async function callGemini(
     systemPrompt: string,
     userMessage: string
 ): Promise<string> {
-    const apiKey = process.env.FREEAPI_KEY || "apf_zgii4ijjtnqseq5oa0psxhtw";
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
 
-    // API accepts a single "message" string — prepend system prompt to message
-    const combinedMessage = systemPrompt
-        ? `${systemPrompt}\n\n${userMessage}`
-        : userMessage;
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const response = await fetch("https://apifreellm.com/api/v1/chat", {
+    const response = await fetch(url, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ message: combinedMessage }),
-        // Free tier has a 20-second rate limit — give it up to 60s to respond
-        signal: AbortSignal.timeout(60000),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            system_instruction: {
+                parts: [{ text: systemPrompt }],
+            },
+            contents: [
+                { role: "user", parts: [{ text: userMessage }] },
+            ],
+            generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 1500,
+            },
+        }),
+        signal: AbortSignal.timeout(30000),
     });
 
-    if (response.status === 429) {
-        throw new Error("APIFreeLLM rate limit reached. Please wait 20 seconds and try again.");
-    }
-    if (response.status === 401) {
-        throw new Error("APIFreeLLM: Invalid API key.");
-    }
     if (!response.ok) {
         const err = await response.text();
-        throw new Error(`APIFreeLLM error (${response.status}): ${err}`);
+        throw new Error(`Gemini API error (${response.status}): ${err}`);
     }
 
     const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (text) return String(text).trim();
 
-    if (data?.success && data?.response) {
-        return String(data.response).trim();
-    }
-
-    throw new Error(`APIFreeLLM returned unexpected format: ${JSON.stringify(data)}`);
+    throw new Error("Unexpected Gemini response format");
 }
 
 // ── OpenRouter fallback ────────────────────────────────────────────────────
@@ -57,7 +59,7 @@ async function callOpenRouterInternal(
     if (!apiKey) throw new Error("OPENROUTER_API_KEY not configured");
 
     const baseUrl = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-    const model   = process.env.OPENROUTER_MODEL   || "meta-llama/llama-3.3-70b-instruct:free";
+    const model = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
@@ -70,11 +72,12 @@ async function callOpenRouterInternal(
             model,
             messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user",   content: userMessage  },
+                { role: "user", content: userMessage },
             ],
             max_tokens: 1500,
             temperature: 0.1,
         }),
+        signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {
@@ -90,36 +93,32 @@ async function callOpenRouterInternal(
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
-/**
- * callLLM — tries APIFreeLLM first, falls back to OpenRouter.
- * Throws only if both fail.
- */
 export async function callLLM(
     systemPrompt: string,
     userMessage: string
 ): Promise<string> {
-    // Primary: APIFreeLLM
+    // 1. Try Gemini (fast, free, works on Vercel)
     try {
-        return await callAPIFreeLLM(systemPrompt, userMessage);
+        return await callGemini(systemPrompt, userMessage);
     } catch (e) {
         if (process.env.NODE_ENV !== "production") {
-            console.warn("APIFreeLLM failed, trying OpenRouter:", (e as Error).message);
+            console.warn("Gemini failed:", (e as Error).message);
         }
     }
 
-    // Fallback: OpenRouter
+    // 2. Try OpenRouter
     try {
         return await callOpenRouterInternal(systemPrompt, userMessage);
     } catch (e) {
         if (process.env.NODE_ENV !== "production") {
-            console.error("OpenRouter fallback also failed:", e);
+            console.warn("OpenRouter failed:", (e as Error).message);
         }
-        throw new Error(
-            "AI service temporarily unavailable. " +
-            "Please try again in a moment."
-        );
     }
+
+    throw new Error(
+        "AI service unavailable. Please set GEMINI_API_KEY in your Vercel environment variables. " +
+        "Get a free key at: https://aistudio.google.com/apikey"
+    );
 }
 
-// Alias kept for existing imports
 export { callOpenRouterInternal as callOpenRouter };
