@@ -32,7 +32,12 @@ export function formatDatabaseError(err: any): FriendlyError {
         return friendly;
     }
 
-    if (code === "ETIMEDOUT" || rawMessage.includes("ETIMEDOUT") || rawMessage.includes("timeout") || rawMessage.includes("timed out")) {
+    if (
+        code === "ETIMEDOUT" ||
+        rawMessage.includes("ETIMEDOUT") ||
+        rawMessage.includes("timeout") ||
+        rawMessage.includes("timed out")
+    ) {
         friendly.friendlyMessage = "Database connection timed out. The server took too long to respond.";
         friendly.suggestion = "Ensure your database server is active and not overloaded, and check that the network latency/connection is stable.";
         return friendly;
@@ -52,8 +57,8 @@ export function formatDatabaseError(err: any): FriendlyError {
     }
 
     // 3. Namespace & Schema errors
-    if (code === "3D000" || rawMessage.includes("database") && rawMessage.includes("does not exist")) {
-        // Extract database name if present
+    // FIX: added explicit parentheses so && does not silently dominate ||
+    if (code === "3D000" || (rawMessage.includes("database") && rawMessage.includes("does not exist"))) {
         const dbNameMatch = rawMessage.match(/database "([^"]+)" does not exist/);
         const dbName = dbNameMatch ? ` "${dbNameMatch[1]}"` : "";
         friendly.friendlyMessage = `The specified database${dbName} does not exist.`;
@@ -62,7 +67,8 @@ export function formatDatabaseError(err: any): FriendlyError {
     }
 
     // 4. SQL execution errors the user triggers
-    if (code === "42703" || rawMessage.includes("column") && rawMessage.includes("does not exist")) {
+    // FIX: added explicit parentheses so && does not silently dominate ||
+    if (code === "42703" || (rawMessage.includes("column") && rawMessage.includes("does not exist"))) {
         const colNameMatch = rawMessage.match(/column "([^"]+)" of relation "([^"]+)" does not exist/);
         const colExplain = colNameMatch
             ? `Column "${colNameMatch[1]}" was not found on table "${colNameMatch[2]}"`
@@ -72,12 +78,13 @@ export function formatDatabaseError(err: any): FriendlyError {
         return friendly;
     }
 
-    if (code === "42P01" || rawMessage.includes("relation") && rawMessage.includes("does not exist")) {
+    // FIX: added explicit parentheses so && does not silently dominate ||
+    if (code === "42P01" || (rawMessage.includes("relation") && rawMessage.includes("does not exist"))) {
         const tableNameMatch = rawMessage.match(/relation "([^"]+)" does not exist/);
         const tableName = tableNameMatch ? ` "${tableNameMatch[1]}"` : "";
         friendly.friendlyMessage = `Table${tableName} was not found in the database.`;
         friendly.friendlyMessage += " This usually happens when the SQL model generates queries on incorrect or non-existent tables.";
-        friendly.suggestion = `Ensure the table exists. Double-check your database structure, or view the columns using the Schema Explorer page to suggest columns correctly.`;
+        friendly.suggestion = "Ensure the table exists. Double-check your database structure, or view the columns using the Schema Explorer page to suggest columns correctly.";
         return friendly;
     }
 
@@ -94,13 +101,12 @@ export function formatDatabaseError(err: any): FriendlyError {
         return friendly;
     }
 
-    // Fallbacks based on common strings
     if (rawMessage.includes("SSL")) {
         friendly.friendlyMessage = "Database SSL handshake connection failed.";
         friendly.suggestion = "Ensure your database server is configured to accept SSL connections, and that your connection URI has the correct SSL parameters.";
         return friendly;
     }
 
-    // Generic fallback mapping
+    // Generic fallback
     return friendly;
 }
