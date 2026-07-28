@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import DataTable from "@/components/data/DataTable";
 import SQLEditor from "@/components/SQLEditor";
 
@@ -10,152 +10,337 @@ const EXAMPLES = [
     "Count total saved reports per user",
 ];
 
-const S = {
-    page: { display: "flex", flexDirection: "column" as const, gap: "24px", maxWidth: "1100px", margin: "0 auto", width: "100%" },
-    card: { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" },
-    label: { fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" },
-    heading: { fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" },
-    subheading: { fontSize: "13px", color: "#6B7280", margin: 0 },
-    errorBox: { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "12px", padding: "14px 16px" },
+// ── tiny helpers ──────────────────────────────────────────────────────────────
+function Spinner({ size = 14, color = "#fff" }: { size?: number; color?: string }) {
+    return (
+        <div style={{
+            width: size, height: size,
+            border: `2px solid rgba(255,255,255,0.2)`,
+            borderTop: `2px solid ${color}`,
+            borderRadius: "50%",
+            animation: "spin 0.7s linear infinite",
+            flexShrink: 0,
+        }} />
+    );
+}
+
+const card: React.CSSProperties = {
+    background: "#0d0f1a",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: "14px",
 };
 
-export default function QueryStudioPage() {
-    const [prompt, setPrompt] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [sql, setSql] = useState<string | null>(null);
-    const [columns, setColumns] = useState<string[]>([]);
-    const [rows, setRows] = useState<any[]>([]);
-    const [error, setError] = useState<string | null>(null);
-    const [copied, setCopied] = useState(false);
+const labelStyle: React.CSSProperties = {
+    fontSize: "11px", fontWeight: 700, color: "#6B7280",
+    textTransform: "uppercase", letterSpacing: "0.08em",
+};
 
-    const runQuery = async (q: string) => {
-        if (!q.trim()) return;
-        setLoading(true); setError(null); setSql(null); setColumns([]); setRows([]);
+// ── page ──────────────────────────────────────────────────────────────────────
+export default function QueryStudioPage() {
+    const [prompt, setPrompt]           = useState("");
+    const [generatedSql, setGeneratedSql] = useState("");
+    const [editedSql, setEditedSql]     = useState("");
+
+    const [generating, setGenerating]   = useState(false);
+    const [running, setRunning]         = useState(false);
+
+    const [columns, setColumns]         = useState<string[]>([]);
+    const [rows, setRows]               = useState<any[]>([]);
+    const [rowError, setRowError]       = useState<string | null>(null);
+    const [genError, setGenError]       = useState<string | null>(null);
+    const [hasResult, setHasResult]     = useState(false);
+    const [copied, setCopied]           = useState(false);
+
+    const resultsRef = useRef<HTMLDivElement>(null);
+
+    // keep edit box in sync when AI returns new SQL
+    useEffect(() => { setEditedSql(generatedSql); }, [generatedSql]);
+
+    // scroll to results after execution
+    useEffect(() => {
+        if (hasResult) resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, [hasResult]);
+
+    // ── step 1: generate SQL ──────────────────────────────────────────────
+    const generateSQL = async (q: string) => {
+        const trimmed = q.trim();
+        if (!trimmed) return;
+        setGenerating(true);
+        setGenError(null);
+        setGeneratedSql("");
+        setColumns([]); setRows([]);
+        setHasResult(false); setRowError(null);
         try {
-            const res = await fetch("/api/query", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: q }),
+            const res  = await fetch("/api/query", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: trimmed }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Query failed");
-            setSql(data.sql); setColumns(data.columns || []); setRows(data.rows || []);
-        } catch (e: any) { setError(e.message); }
-        finally { setLoading(false); }
+            if (!res.ok) throw new Error(data.error || "Generation failed");
+            setGeneratedSql(data.sql ?? "");
+        } catch (e: any) {
+            setGenError(e.message);
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    // ── step 2: execute SQL ───────────────────────────────────────────────
+    const runSQL = async () => {
+        const sql = editedSql.trim();
+        if (!sql) return;
+        setRunning(true);
+        setRowError(null); setColumns([]); setRows([]);
+        setHasResult(false);
+        try {
+            const res  = await fetch("/api/query/run", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sql }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Execution failed");
+            setColumns(data.columns ?? []);
+            setRows(data.rows ?? []);
+            setHasResult(true);
+        } catch (e: any) {
+            setRowError(e.message);
+            setHasResult(true);
+        } finally {
+            setRunning(false);
+        }
     };
 
     const handleCopy = () => {
-        if (!sql) return;
-        navigator.clipboard.writeText(sql);
+        if (!editedSql) return;
+        navigator.clipboard.writeText(editedSql);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const isDirty = !!generatedSql && editedSql.trim() !== generatedSql.trim();
+
     return (
-        <div style={S.page}>
-            {/* Header */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1100px", margin: "0 auto", width: "100%" }}>
+
+            {/* ── page header ── */}
             <div>
-                <h1 style={S.heading}>Query Studio</h1>
-                <p style={S.subheading}>Write in plain English — Talk2DB translates to safe SQL and runs it instantly.</p>
+                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>
+                    Query Studio
+                </h1>
+                <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
+                    Write in plain English — Talk2DB generates SQL on the right. Edit it, then hit Run.
+                </p>
             </div>
 
-            {/* Input card */}
-            <div style={{ ...S.card, padding: "22px 24px" }}>
-                <form onSubmit={e => { e.preventDefault(); runQuery(prompt); }} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                    <label style={S.label}>Natural Language Prompt</label>
-                    <SQLEditor
-                        value={prompt}
-                        onChange={setPrompt}
-                        placeholder="e.g. Find all users who joined this month and show their email and created date..."
-                        disabled={loading}
-                        minHeight={120}
-                    />
+            {/* ── two-panel row (always visible) ── */}
+            <div style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "16px",
+                alignItems: "stretch",   /* both cards grow to the same height */
+            }}>
 
-                    {/* Example chips + submit */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                            <span style={{ fontSize: "11px", color: "#4B5563", fontWeight: 600 }}>Try:</span>
+                {/* ── LEFT: natural language prompt ── */}
+                <div style={{ ...card, padding: "22px 24px", display: "flex", flexDirection: "column" }}>
+                    <form
+                        onSubmit={e => { e.preventDefault(); generateSQL(prompt); }}
+                        style={{ display: "flex", flexDirection: "column", gap: "14px", flex: 1 }}
+                    >
+                        <label style={labelStyle}>Natural Language Prompt</label>
+
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                            <SQLEditor
+                                value={prompt}
+                                onChange={setPrompt}
+                                placeholder="e.g. Show all employees who have salary less than 60000..."
+                                disabled={generating}
+                                minHeight={148}
+                            />
+                        </div>
+
+                        {/* example chips */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "11px", color: "#4B5563", fontWeight: 600, marginRight: 2 }}>Try:</span>
                             {EXAMPLES.map(ex => (
-                                <button key={ex} type="button"
-                                    disabled={loading}
-                                    onClick={() => { setPrompt(ex); runQuery(ex); }}
+                                <button
+                                    key={ex} type="button" disabled={generating}
+                                    onClick={() => { setPrompt(ex); generateSQL(ex); }}
                                     style={{
-                                        fontSize: "11px", padding: "5px 12px", borderRadius: "20px",
+                                        fontSize: "11px", padding: "4px 11px", borderRadius: "20px",
                                         background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)",
-                                        color: "#a5b4fc", cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap",
+                                        color: "#a5b4fc", cursor: generating ? "not-allowed" : "pointer", whiteSpace: "nowrap",
                                     }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.15)"}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.18)"}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.08)"}
                                 >
-                                    {ex.length > 38 ? ex.slice(0, 38) + "…" : ex}
+                                    {ex.length > 34 ? ex.slice(0, 34) + "…" : ex}
                                 </button>
                             ))}
                         </div>
-                        <button type="submit" disabled={loading} style={{
-                            padding: "10px 28px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
-                            background: loading ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                            color: "#fff", border: "none", cursor: loading ? "not-allowed" : "pointer",
-                            boxShadow: loading ? "none" : "0 4px 14px rgba(99,102,241,0.3)", transition: "filter 0.15s",
-                            display: "flex", alignItems: "center", gap: "8px",
-                        }}
-                            onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
+
+                        {/* generate button */}
+                        <button
+                            type="submit"
+                            disabled={generating || !prompt.trim()}
+                            style={{
+                                padding: "11px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
+                                background: (generating || !prompt.trim()) ? "rgba(99,102,241,0.3)" : "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                                color: "#fff", border: "none",
+                                cursor: (generating || !prompt.trim()) ? "not-allowed" : "pointer",
+                                boxShadow: (generating || !prompt.trim()) ? "none" : "0 4px 14px rgba(99,102,241,0.3)",
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                            }}
+                            onMouseEnter={e => { if (!generating) (e.currentTarget as HTMLElement).style.filter = "brightness(1.12)"; }}
                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
                         >
-                            {loading && <div style={{ width: "14px", height: "14px", border: "2px solid rgba(255,255,255,0.3)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />}
-                            {loading ? "Running…" : "Execute Query"}
+                            {generating && <Spinner />}
+                            {generating ? "Generating SQL…" : "Generate SQL →"}
                         </button>
+
+                        {/* generation error */}
+                        {genError && (
+                            <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
+                                <p style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", margin: "0 0 3px" }}>⚠ Generation Error</p>
+                                <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0 }}>{genError}</p>
+                            </div>
+                        )}
+                    </form>
+                </div>
+
+                {/* ── RIGHT: editable SQL + run button ── */}
+                <div style={{ ...card, padding: "22px 24px", display: "flex", flexDirection: "column", gap: "14px" }}>
+
+                    {/* header */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={labelStyle}>Generated SQL</span>
+                            {isDirty && (
+                                <span style={{
+                                    fontSize: "10px", fontWeight: 600, color: "#fbbf24",
+                                    background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)",
+                                    borderRadius: "6px", padding: "2px 7px",
+                                }}>edited</span>
+                            )}
+                        </div>
+
+                        <div style={{ display: "flex", gap: "6px" }}>
+                            {isDirty && (
+                                <button
+                                    onClick={() => setEditedSql(generatedSql)}
+                                    style={{
+                                        fontSize: "11px", fontWeight: 600, padding: "4px 11px", borderRadius: "7px",
+                                        background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                                        color: "#9CA3AF", cursor: "pointer",
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.09)"}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"}
+                                >↺ Reset</button>
+                            )}
+                            <button
+                                onClick={handleCopy}
+                                disabled={!editedSql}
+                                style={{
+                                    fontSize: "11px", fontWeight: 600, padding: "4px 11px", borderRadius: "7px",
+                                    background: copied ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.04)",
+                                    border: copied ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(255,255,255,0.08)",
+                                    color: copied ? "#34d399" : "#9CA3AF",
+                                    cursor: editedSql ? "pointer" : "not-allowed",
+                                    display: "flex", alignItems: "center", gap: "4px",
+                                }}
+                            >
+                                {copied
+                                    ? <><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>Copied</>
+                                    : <><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>Copy</>
+                                }
+                            </button>
+                        </div>
                     </div>
-                </form>
+
+                    {/* SQL editor — loading skeleton OR real editor */}
+                    {generating ? (
+                        <div style={{
+                            flex: 1, minHeight: 148, borderRadius: "10px",
+                            background: "#080a12", border: "1px solid rgba(255,255,255,0.06)",
+                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                            gap: "12px", color: "#4B5563",
+                        }}>
+                            <Spinner size={20} color="#818cf8" />
+                            <span style={{ fontSize: "12px", fontWeight: 600 }}>Generating SQL…</span>
+                        </div>
+                    ) : (
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                            <SQLEditor
+                                value={editedSql}
+                                onChange={setEditedSql}
+                                placeholder="SQL will appear here after you click Generate SQL →"
+                                disabled={running}
+                                minHeight={148}
+                            />
+                        </div>
+                    )}
+
+                    <p style={{ fontSize: "11px", color: "#374151", margin: 0 }}>
+                        ✏️ Edit the SQL above if needed, then click Run.
+                    </p>
+
+                    {/* Run button */}
+                    <button
+                        onClick={runSQL}
+                        disabled={running || !editedSql.trim()}
+                        style={{
+                            width: "100%", padding: "12px", borderRadius: "10px",
+                            fontSize: "14px", fontWeight: 700,
+                            background: (running || !editedSql.trim())
+                                ? "rgba(16,185,129,0.25)"
+                                : "linear-gradient(135deg,#10b981,#059669)",
+                            color: "#fff", border: "none",
+                            cursor: (running || !editedSql.trim()) ? "not-allowed" : "pointer",
+                            boxShadow: (running || !editedSql.trim()) ? "none" : "0 4px 14px rgba(16,185,129,0.3)",
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                        }}
+                        onMouseEnter={e => { if (!running && editedSql.trim()) (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
+                    >
+                        {running && <Spinner />}
+                        {running
+                            ? "Running…"
+                            : <><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><polygon points="5 3 19 12 5 21 5 3" /></svg>Run Query</>
+                        }
+                    </button>
+                </div>
             </div>
 
-            {/* Error */}
-            {error && (
-                <div style={S.errorBox}>
-                    <p style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", margin: "0 0 4px" }}>⚠ Query Error</p>
-                    <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0 }}>{error}</p>
-                </div>
-            )}
-
-            {/* Generated SQL */}
-            {sql && (
-                <div style={{ ...S.card, padding: "20px 22px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        <span style={{ ...S.label }}>Generated SQL</span>
-                        <button onClick={handleCopy} style={{
-                            fontSize: "11px", fontWeight: 600, padding: "5px 14px", borderRadius: "7px",
-                            background: copied ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.05)",
-                            border: copied ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(255,255,255,0.1)",
-                            color: copied ? "#34d399" : "#9CA3AF", cursor: "pointer", transition: "all 0.15s",
-                            display: "flex", alignItems: "center", gap: "5px",
-                        }}>
-                            {copied
-                                ? <><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>Copied</>
-                                : <><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" /></svg>Copy SQL</>
+            {/* ── results table (always below both panels) ── */}
+            {hasResult && (
+                <div ref={resultsRef} style={{ animation: "fadeUp 0.25s ease" }}>
+                    {rowError ? (
+                        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "12px", padding: "14px 16px" }}>
+                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", margin: "0 0 3px" }}>⚠ Execution Error</p>
+                            <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0, fontFamily: "monospace", wordBreak: "break-word" }}>{rowError}</p>
+                        </div>
+                    ) : (
+                        <div style={{ ...card, padding: "20px 22px" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", paddingBottom: "12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                <span style={labelStyle}>Results</span>
+                                <span style={{ fontSize: "11px", color: "#4B5563", fontWeight: 600 }}>
+                                    {rows.length.toLocaleString()} row{rows.length !== 1 ? "s" : ""} returned
+                                </span>
+                            </div>
+                            {rows.length === 0
+                                ? <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Query executed successfully — no rows returned.</p>
+                                : <DataTable columns={columns} rows={rows} pageSize={20} />
                             }
-                        </button>
-                    </div>
-                    <pre style={{
-                        background: "#080a12", border: "1px solid rgba(255,255,255,0.06)",
-                        borderRadius: "10px", padding: "16px", margin: 0,
-                        fontSize: "12px", fontFamily: "'Geist Mono', monospace", color: "#818cf8",
-                        overflowX: "auto", whiteSpace: "pre-wrap", lineHeight: 1.75,
-                    }}>{sql}</pre>
-                    <p style={{ fontSize: "10px", color: "#374151", margin: "8px 0 0" }}>
-                        💡 The SQL above is read-only. Edit your prompt above to regenerate.
-                    </p>                </div>
-            )}
-
-            {/* Results */}
-            {rows.length > 0 && (
-                <div style={{ ...S.card, padding: "20px 22px" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        <span style={S.label}>Results</span>
-                        <span style={{ fontSize: "11px", color: "#4B5563", fontWeight: 600 }}>{rows.length.toLocaleString()} row{rows.length !== 1 ? "s" : ""} returned</span>
-                    </div>
-                    <DataTable columns={columns} rows={rows} pageSize={20} />
+                        </div>
+                    )}
                 </div>
             )}
 
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <style>{`
+                @keyframes spin    { to { transform: rotate(360deg); } }
+                @keyframes fadeUp  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+            `}</style>
         </div>
     );
 }

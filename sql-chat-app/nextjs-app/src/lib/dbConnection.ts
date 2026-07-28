@@ -1,13 +1,21 @@
-import { Pool } from "pg";
+import { Pool, Client } from "pg";
 import { decrypt } from "./encryption";
 import crypto from "crypto";
 
-// Key pool cache by a SHA-256 hash of the ENCRYPTED string, not plaintext.
-// This avoids storing raw credentials as Map keys in memory.
+// Cache pools by SHA-256 of the encrypted string (never store plaintext as key).
 const poolCache = new Map<string, Pool>();
 
 function cacheKey(encryptedStr: string): string {
     return crypto.createHash("sha256").update(encryptedStr).digest("hex");
+}
+
+/**
+ * Returns true if the connection string points to a Neon serverless database.
+ * Neon free-tier instances sleep and cannot hold persistent TCP connections,
+ * so we use a fresh Client per query instead of a Pool for Neon URLs.
+ */
+function isNeonUrl(url: string): boolean {
+    return url.includes(".neon.tech");
 }
 
 export async function getUserDbPool(encryptedConnectionString: string): Promise<Pool> {
@@ -15,8 +23,7 @@ export async function getUserDbPool(encryptedConnectionString: string): Promise<
 
     if (poolCache.has(key)) {
         const existing = poolCache.get(key)!;
-        // Quick liveness check — if the pool's total count is 0 it was drained/ended,
-        // remove it from cache so we recreate
+        // If the pool was drained/ended, recreate it
         if ((existing as any).totalCount !== undefined && (existing as any).totalCount === 0) {
             poolCache.delete(key);
         } else {
@@ -29,13 +36,14 @@ export async function getUserDbPool(encryptedConnectionString: string): Promise<
     const pool = new Pool({
         connectionString,
         ssl: { rejectUnauthorized: false },
-        max: 5,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 8000,
+        max: isNeonUrl(connectionString) ? 1 : 5,  // Neon: don't maintain many idle connections
+        idleTimeoutMillis: isNeonUrl(connectionString) ? 1000 : 30000,  // Neon: drop idle sockets fast
+        connectionTimeoutMillis: 10000,
         statement_timeout: 30000,
+        // Neon: disable keepalive — the server closes idle connections
+        keepAlive: !isNeonUrl(connectionString),
     });
 
-    // Remove from cache if pool encounters a fatal error
     pool.on("error", () => {
         poolCache.delete(key);
     });
@@ -44,10 +52,40 @@ export async function getUserDbPool(encryptedConnectionString: string): Promise<
     return pool;
 }
 
+/**
+ * Execute a SQL query against the user's database.
+ *
+ * For Neon databases: uses a fresh Client per call (connect → query → end)
+ * to avoid "Can't reach database server" errors from stale pool sockets.
+ *
+ * For all other databases: uses a persistent Pool for better performance.
+ */
 export async function executeQuery(
     encryptedConnectionString: string,
     sql: string
 ): Promise<{ columns: string[]; rows: any[] }> {
+    const connectionString = decrypt(encryptedConnectionString);
+
+    if (isNeonUrl(connectionString)) {
+        // Fresh client per query — avoids stale connection errors on Neon free tier
+        const client = new Client({
+            connectionString,
+            ssl: { rejectUnauthorized: false },
+            connectionTimeoutMillis: 10000,
+            statement_timeout: 30000,
+        });
+        try {
+            await client.connect();
+            const result = await client.query(sql);
+            const columns = result.fields.map((f) => f.name);
+            return { columns, rows: result.rows };
+        } finally {
+            // Always close — never leave a dangling connection to Neon
+            await client.end().catch(() => {});
+        }
+    }
+
+    // Non-Neon: use pool as usual
     const pool = await getUserDbPool(encryptedConnectionString);
     const result = await pool.query(sql);
     const columns = result.fields.map((f) => f.name);

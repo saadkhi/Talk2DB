@@ -2,30 +2,36 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { callLLM } from "@/lib/llm";
-import { executeQuery, getUserDbPool } from "@/lib/dbConnection";
+import { executeQuery } from "@/lib/dbConnection";
 import { isSQLSafe, extractSQL } from "@/lib/sqlSafety";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 import { resolveUserWithDb } from "@/lib/resolveUser";
 
 async function getSchemaContext(encryptedUrl: string): Promise<string> {
     try {
-        const pool = await getUserDbPool(encryptedUrl);
-        const tablesResult = await pool.query(
+        // Use executeQuery (which handles Neon fresh-client strategy) for schema introspection
+        const tablesResult = await executeQuery(
+            encryptedUrl,
             `SELECT table_name FROM information_schema.tables
              WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
              ORDER BY table_name`
         );
+
+        const tableNames = tablesResult.rows.map((r: any) => r.table_name as string);
+
         const tables = await Promise.all(
-            tablesResult.rows.map(async (row: any) => {
-                const colResult = await pool.query(
+            tableNames.map(async (tableName) => {
+                const colResult = await executeQuery(
+                    encryptedUrl,
                     `SELECT column_name, data_type FROM information_schema.columns
-                     WHERE table_name = $1 AND table_schema = 'public'
-                     ORDER BY ordinal_position`,
-                    [row.table_name]
+                     WHERE table_name = '${tableName.replace(/'/g, "''")}' AND table_schema = 'public'
+                     ORDER BY ordinal_position`
                 );
-                return `Table: ${row.table_name}\nColumns: ${colResult.rows.map((c: any) => `${c.column_name} (${c.data_type})`).join(", ")}`;
+                const cols = colResult.rows.map((c: any) => `${c.column_name} (${c.data_type})`).join(", ");
+                return `Table: ${tableName}\nColumns: ${cols}`;
             })
         );
+
         return tables.join("\n\n");
     } catch {
         return "";
@@ -106,14 +112,14 @@ Just the pure SQL query on one or multiple lines.`;
             }, { status: 400 });
         }
 
-        const safeSql = /\bLIMIT\b/i.test(sql) ? sql : `${sql} LIMIT 500`;
+        // FIX: strip trailing semicolon before appending LIMIT so we don't
+        // produce "SELECT ... FROM t; LIMIT 500" which is a syntax error.
+        const cleanSql = sql.replace(/;\s*$/, "").trim();
+        const safeSql = /\bLIMIT\b/i.test(cleanSql) ? cleanSql : `${cleanSql} LIMIT 500`;
 
-        try {
-            const { columns, rows } = await executeQuery(user.dbConnectionString, safeSql);
-            return NextResponse.json({ sql: safeSql, columns, rows });
-        } catch (dbError: any) {
-            return NextResponse.json({ error: dbError.message, sql: safeSql }, { status: 422 });
-        }
+        // Return the generated SQL without executing it — the client now
+        // shows it in an editable box and fires a separate /api/query/run request.
+        return NextResponse.json({ sql: safeSql });
     } catch (error: any) {
         if (process.env.NODE_ENV !== "production") {
             console.error("Query route error:", error);
