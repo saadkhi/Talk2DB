@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { resolveUserId } from "@/lib/resolveUser";
 
 export async function POST(req: Request) {
     try {
@@ -10,7 +11,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const userId = (session.user as any).id;
+        // FIX: use resolveUserId so stale OAuth sessions (token.id missing) still work
+        const userId = await resolveUserId(session);
+        if (!userId) {
+            return NextResponse.json({ error: "Account not found. Please sign out and sign back in." }, { status: 401 });
+        }
 
         const { title, prompt, sql, chartType, summary, insights } = await req.json();
 
@@ -49,7 +54,11 @@ export async function GET() {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const userId = (session.user as any).id;
+        // FIX: use resolveUserId so stale OAuth sessions (token.id missing) still work
+        const userId = await resolveUserId(session);
+        if (!userId) {
+            return NextResponse.json({ error: "Account not found. Please sign out and sign back in." }, { status: 401 });
+        }
 
         const reports = await prisma.savedReport.findMany({
             where: { userId },

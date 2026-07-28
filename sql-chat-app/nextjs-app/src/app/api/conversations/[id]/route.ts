@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { resolveUserId } from "@/lib/resolveUser";
 
 export async function GET(
-    req: Request,
+    _req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
@@ -14,7 +15,12 @@ export async function GET(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const userId = (session.user as any).id;
+        // FIX: use resolveUserId so stale OAuth sessions (token.id missing) still work
+        const userId = await resolveUserId(session);
+        if (!userId) {
+            return NextResponse.json({ error: "Account not found. Please sign out and sign back in." }, { status: 401 });
+        }
+
         const { id } = await params;
 
         const conversation = await prisma.conversation.findUnique({
@@ -35,7 +41,7 @@ export async function GET(
 
         return NextResponse.json(conversation);
     } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== "production") {
             console.error("Fetch conversation detail error:", error);
         }
         return NextResponse.json(
@@ -44,8 +50,9 @@ export async function GET(
         );
     }
 }
+
 export async function DELETE(
-    req: Request,
+    _req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
@@ -55,10 +62,15 @@ export async function DELETE(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const userId = (session.user as any).id;
+        // FIX: use resolveUserId so stale OAuth sessions (token.id missing) still work
+        const userId = await resolveUserId(session);
+        if (!userId) {
+            return NextResponse.json({ error: "Account not found. Please sign out and sign back in." }, { status: 401 });
+        }
+
         const { id } = await params;
 
-        // Ensure the conversation belongs to the user
+        // Verify the conversation belongs to this user before deleting
         const conversation = await prisma.conversation.findUnique({
             where: { id, userId },
         });
@@ -76,7 +88,7 @@ export async function DELETE(
 
         return NextResponse.json({ message: "Conversation deleted" });
     } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== "production") {
             console.error("Delete conversation error:", error);
         }
         return NextResponse.json(

@@ -12,7 +12,28 @@ const app = express();
 const port = process.env.PORT || 8000;
 const prisma = new PrismaClient();
 
-app.use(cors({ origin: true, credentials: true }));
+// FIX: replace wildcard origin reflection with an explicit allowlist.
+// origin:true reflects every caller's origin with credentials=true, which is
+// equivalent to Access-Control-Allow-Origin: * with credentials — any site
+// could make authenticated requests to this server.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            // Allow server-to-server calls (no Origin header) and listed origins
+            if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error(`CORS: origin '${origin}' is not allowed`));
+            }
+        },
+        credentials: true,
+    })
+);
 app.use(express.json());
 
 // Auth middleware reading NextAuth session tokens

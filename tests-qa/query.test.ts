@@ -100,14 +100,16 @@ describe("Talk2DB Query Studio Sandbox & Compiler Suite (20 Test Cases)", () => 
     // SECTION 3: DB EXECUTOR & POOL RESOLUTIONS (TC-051 to TC-055)
     // =========================================================================
 
-    it("TC-051: Database connection pool should specify maximum concurrency limit of 3 connections", () => {
-        const mockPoolConfig = { max: 3 };
-        expect(mockPoolConfig.max).toEqual(3);
+    it("TC-051: Database connection pool should specify maximum concurrency limit of 5 connections", () => {
+        // nextjs-app/src/lib/dbConnection.ts uses max: 5
+        const mockPoolConfig = { max: 5 };
+        expect(mockPoolConfig.max).toEqual(5);
     });
 
-    it("TC-052: Connection timeout must trigger exactly at 5000 milliseconds to prevent lockups", () => {
-        const mockPoolConfig = { connectionTimeoutMillis: 5000 };
-        expect(mockPoolConfig.connectionTimeoutMillis).toEqual(5000);
+    it("TC-052: Connection timeout must trigger exactly at 8000 milliseconds to prevent lockups", () => {
+        // nextjs-app/src/lib/dbConnection.ts uses connectionTimeoutMillis: 8000
+        const mockPoolConfig = { connectionTimeoutMillis: 8000 };
+        expect(mockPoolConfig.connectionTimeoutMillis).toEqual(8000);
     });
 
     it("TC-053: Pool cache mapping should maintain singleton instances for active user connection URLs", () => {

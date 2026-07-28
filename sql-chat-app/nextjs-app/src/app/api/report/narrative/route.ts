@@ -44,12 +44,16 @@ export async function POST(req: Request) {
             const cleanJson = raw.replace(/```json|```/gi, "").trim();
             narrative = JSON.parse(cleanJson);
         } catch (e: any) {
-            console.warn("Fell back to standard narrative template due to LLM error:", e);
+            if (process.env.NODE_ENV !== "production") {
+                console.warn("Fell back to standard narrative template due to LLM error:", e);
+            }
         }
 
         return NextResponse.json(narrative);
     } catch (error: any) {
-        console.error("Report Narrative compilation API error:", error);
+        if (process.env.NODE_ENV !== "production") {
+            console.error("Report Narrative compilation API error:", error);
+        }
         return NextResponse.json({ error: error.message || "Failed compiled report content" }, { status: 500 });
     }
 }

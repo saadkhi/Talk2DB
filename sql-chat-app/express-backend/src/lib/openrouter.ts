@@ -37,7 +37,10 @@ export async function callOpenRouter(systemPrompt: string, userMessage: string):
         }
         throw new Error("Invalid response format from OpenRouter");
     } catch (error) {
-        console.error("OpenRouter request failed:", error);
+        // FIX: guard with NODE_ENV so production logs stay clean
+        if (process.env.NODE_ENV !== "production") {
+            console.error("OpenRouter request failed:", error);
+        }
         throw error;
     }
 }
