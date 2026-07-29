@@ -1,25 +1,20 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import DataTable from "@/components/data/DataTable";
 import SQLEditor from "@/components/SQLEditor";
 
-const EXAMPLES = [
-    "Show the top 10 most recent users",
-    "List all conversations with their message counts",
-    "Find users who joined in the last 30 days",
-    "Count total saved reports per user",
-];
+/* ── Types ───────────────────────────────────────────────────────────────── */
+interface ColInfo { name: string; type: string; nullable: boolean; isPrimary: boolean; }
+interface TableInfo { name: string; rowCount: number; columns: ColInfo[]; }
 
-// ── tiny helpers ──────────────────────────────────────────────────────────────
+/* ── Tiny helpers ────────────────────────────────────────────────────────── */
 function Spinner({ size = 14, color = "#fff" }: { size?: number; color?: string }) {
     return (
         <div style={{
-            width: size, height: size,
-            border: `2px solid rgba(255,255,255,0.2)`,
+            width: size, height: size, flexShrink: 0,
+            border: `2px solid rgba(255,255,255,0.15)`,
             borderTop: `2px solid ${color}`,
-            borderRadius: "50%",
-            animation: "spin 0.7s linear infinite",
-            flexShrink: 0,
+            borderRadius: "50%", animation: "spin 0.7s linear infinite",
         }} />
     );
 }
@@ -27,41 +22,94 @@ function Spinner({ size = 14, color = "#fff" }: { size?: number; color?: string 
 const card: React.CSSProperties = {
     background: "#0d0f1a",
     border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "14px",
+    borderRadius: "12px",
 };
 
 const labelStyle: React.CSSProperties = {
-    fontSize: "11px", fontWeight: 700, color: "#6B7280",
+    fontSize: "10px", fontWeight: 700, color: "#6B7280",
     textTransform: "uppercase", letterSpacing: "0.08em",
 };
 
-// ── page ──────────────────────────────────────────────────────────────────────
+/* ── Main page ────────────────────────────────────────────────────────────── */
 export default function QueryStudioPage() {
+
+    /* ── schema / table list ── */
+    const [tables, setTables]           = useState<TableInfo[]>([]);
+    const [loadingSchema, setLoadingSchema] = useState(true);
+    const [schemaError, setSchemaError] = useState<string | null>(null);
+    const [tableSearch, setTableSearch] = useState("");
+    const [selectedTable, setSelectedTable] = useState<TableInfo | null>(null);
+
+    /* ── prompt / SQL ── */
     const [prompt, setPrompt]           = useState("");
     const [generatedSql, setGeneratedSql] = useState("");
     const [editedSql, setEditedSql]     = useState("");
-
     const [generating, setGenerating]   = useState(false);
-    const [running, setRunning]         = useState(false);
+    const [genError, setGenError]       = useState<string | null>(null);
+    const [copied, setCopied]           = useState(false);
 
+    /* ── query results ── */
+    const [running, setRunning]         = useState(false);
     const [columns, setColumns]         = useState<string[]>([]);
     const [rows, setRows]               = useState<any[]>([]);
     const [rowError, setRowError]       = useState<string | null>(null);
-    const [genError, setGenError]       = useState<string | null>(null);
     const [hasResult, setHasResult]     = useState(false);
-    const [copied, setCopied]           = useState(false);
 
     const resultsRef = useRef<HTMLDivElement>(null);
 
-    // keep edit box in sync when AI returns new SQL
+    /* keep edit box in sync when AI generates new SQL */
     useEffect(() => { setEditedSql(generatedSql); }, [generatedSql]);
 
-    // scroll to results after execution
+    /* scroll to results after run */
     useEffect(() => {
         if (hasResult) resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, [hasResult]);
 
-    // ── step 1: generate SQL ──────────────────────────────────────────────
+    /* ── load schema on mount ────────────────────────────────────────────── */
+    useEffect(() => {
+        fetch("/api/schema")
+            .then(r => r.json())
+            .then(d => {
+                if (d.error) throw new Error(d.error);
+                setTables(d.tables || []);
+            })
+            .catch(e => setSchemaError(e.message))
+            .finally(() => setLoadingSchema(false));
+    }, []);
+
+    /* ── click a table: fill SQL editor + run it ─────────────────────────── */
+    const handleTableClick = useCallback(async (t: TableInfo) => {
+        setSelectedTable(t);
+        const sql = `SELECT * FROM "${t.name}" LIMIT 100`;
+        setEditedSql(sql);
+        setGeneratedSql(sql);
+        setGenError(null);
+        setPrompt("");
+
+        // auto-run
+        setRunning(true);
+        setRowError(null); setColumns([]); setRows([]);
+        setHasResult(false);
+        try {
+            const res  = await fetch("/api/query/run", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sql }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Execution failed");
+            setColumns(data.columns ?? []);
+            setRows(data.rows ?? []);
+            setHasResult(true);
+        } catch (e: any) {
+            setRowError(e.message);
+            setHasResult(true);
+        } finally {
+            setRunning(false);
+        }
+    }, []);
+
+    /* ── generate SQL from NL prompt ─────────────────────────────────────── */
     const generateSQL = async (q: string) => {
         const trimmed = q.trim();
         if (!trimmed) return;
@@ -70,6 +118,7 @@ export default function QueryStudioPage() {
         setGeneratedSql("");
         setColumns([]); setRows([]);
         setHasResult(false); setRowError(null);
+        setSelectedTable(null);
         try {
             const res  = await fetch("/api/query", {
                 method: "POST",
@@ -87,7 +136,7 @@ export default function QueryStudioPage() {
         }
     };
 
-    // ── step 2: execute SQL ───────────────────────────────────────────────
+    /* ── run current SQL manually ─────────────────────────────────────────── */
     const runSQL = async () => {
         const sql = editedSql.trim();
         if (!sql) return;
@@ -121,222 +170,391 @@ export default function QueryStudioPage() {
     };
 
     const isDirty = !!generatedSql && editedSql.trim() !== generatedSql.trim();
+    const filteredTables = tables.filter(t =>
+        t.name.toLowerCase().includes(tableSearch.toLowerCase())
+    );
 
+    /* ─────────────────────────────────────────────────────────────────────── */
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1100px", margin: "0 auto", width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%", maxWidth: "1400px", margin: "0 auto" }}>
 
-            {/* ── page header ── */}
+            {/* ── Page header ── */}
             <div>
                 <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>
                     Query Studio
                 </h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
-                    Write in plain English — Talk2DB generates SQL on the right. Edit it, then hit Run.
+                    Click any table to browse its data, or type a prompt and let Talk2DB generate the SQL.
                 </p>
             </div>
 
-            {/* ── two-panel row (always visible) ── */}
+            {/* ── Three-column main layout ── */}
             <div style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "16px",
-                alignItems: "stretch",   /* both cards grow to the same height */
+                gridTemplateColumns: "220px 1fr",
+                gap: "14px",
+                alignItems: "start",
             }}>
 
-                {/* ── LEFT: natural language prompt ── */}
-                <div style={{ ...card, padding: "22px 24px", display: "flex", flexDirection: "column" }}>
-                    <form
-                        onSubmit={e => { e.preventDefault(); generateSQL(prompt); }}
-                        style={{ display: "flex", flexDirection: "column", gap: "14px", flex: 1 }}
-                    >
-                        <label style={labelStyle}>Natural Language Prompt</label>
+                {/* ══ LEFT: Table list panel ══════════════════════════════════ */}
+                <div style={{
+                    ...card,
+                    padding: "14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                    position: "sticky",
+                    top: "72px",
+                    maxHeight: "calc(100vh - 140px)",
+                    overflow: "hidden",
+                }}>
+                    <div style={labelStyle}>
+                        Tables {!loadingSchema && `(${tables.length})`}
+                    </div>
 
-                        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                            <SQLEditor
-                                value={prompt}
-                                onChange={setPrompt}
-                                placeholder="e.g. Show all employees who have salary less than 60000..."
-                                disabled={generating}
-                                minHeight={148}
-                            />
-                        </div>
+                    {/* Search box */}
+                    <input
+                        value={tableSearch}
+                        onChange={e => setTableSearch(e.target.value)}
+                        placeholder="Search…"
+                        style={{
+                            background: "#080a12",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            borderRadius: "8px",
+                            padding: "7px 10px",
+                            fontSize: "12px",
+                            color: "#fff",
+                            outline: "none",
+                            width: "100%",
+                            boxSizing: "border-box",
+                        }}
+                    />
 
-                        {/* example chips */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                            <span style={{ fontSize: "11px", color: "#4B5563", fontWeight: 600, marginRight: 2 }}>Try:</span>
-                            {EXAMPLES.map(ex => (
-                                <button
-                                    key={ex} type="button" disabled={generating}
-                                    onClick={() => { setPrompt(ex); generateSQL(ex); }}
-                                    style={{
-                                        fontSize: "11px", padding: "4px 11px", borderRadius: "20px",
-                                        background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)",
-                                        color: "#a5b4fc", cursor: generating ? "not-allowed" : "pointer", whiteSpace: "nowrap",
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.18)"}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.08)"}
-                                >
-                                    {ex.length > 34 ? ex.slice(0, 34) + "…" : ex}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* generate button */}
-                        <button
-                            type="submit"
-                            disabled={generating || !prompt.trim()}
-                            style={{
-                                padding: "11px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
-                                background: (generating || !prompt.trim()) ? "rgba(99,102,241,0.3)" : "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                                color: "#fff", border: "none",
-                                cursor: (generating || !prompt.trim()) ? "not-allowed" : "pointer",
-                                boxShadow: (generating || !prompt.trim()) ? "none" : "0 4px 14px rgba(99,102,241,0.3)",
-                                display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                            }}
-                            onMouseEnter={e => { if (!generating) (e.currentTarget as HTMLElement).style.filter = "brightness(1.12)"; }}
-                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
-                        >
-                            {generating && <Spinner />}
-                            {generating ? "Generating SQL…" : "Generate SQL →"}
-                        </button>
-
-                        {/* generation error */}
-                        {genError && (
-                            <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
-                                <p style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", margin: "0 0 3px" }}>⚠ Generation Error</p>
-                                <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0 }}>{genError}</p>
+                    {/* List */}
+                    <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "2px" }}>
+                        {loadingSchema && (
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 4px", color: "#4B5563", fontSize: "12px" }}>
+                                <Spinner size={12} color="#6366f1" />Loading…
                             </div>
                         )}
-                    </form>
+
+                        {schemaError && (
+                            <p style={{ fontSize: "11px", color: "#f87171", padding: "8px 4px", margin: 0 }}>
+                                ⚠ {schemaError}
+                            </p>
+                        )}
+
+                        {!loadingSchema && !schemaError && filteredTables.length === 0 && (
+                            <p style={{ fontSize: "11px", color: "#4B5563", padding: "8px 4px", margin: 0 }}>
+                                {tableSearch ? "No match" : "No tables found"}
+                            </p>
+                        )}
+
+                        {filteredTables.map(t => {
+                            const active = selectedTable?.name === t.name;
+                            return (
+                                <button
+                                    key={t.name}
+                                    onClick={() => handleTableClick(t)}
+                                    title={`${t.name} · ${t.rowCount.toLocaleString()} rows`}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        padding: "8px 10px",
+                                        borderRadius: "8px",
+                                        border: active ? "1px solid rgba(99,102,241,0.35)" : "1px solid transparent",
+                                        background: active ? "rgba(99,102,241,0.14)" : "transparent",
+                                        cursor: "pointer",
+                                        textAlign: "left",
+                                        width: "100%",
+                                        transition: "background 0.12s",
+                                        gap: "6px",
+                                    }}
+                                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
+                                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                                >
+                                    {/* DB icon */}
+                                    <svg width="12" height="12" fill="none" stroke={active ? "#818cf8" : "#4B5563"}
+                                        strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round"
+                                            d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 2.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                                    </svg>
+
+                                    {/* Table name */}
+                                    <span style={{
+                                        flex: 1,
+                                        fontSize: "12px",
+                                        fontWeight: active ? 700 : 500,
+                                        color: active ? "#fff" : "#9CA3AF",
+                                        fontFamily: "monospace",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                    }}>
+                                        {t.name}
+                                    </span>
+
+                                    {/* Row count badge */}
+                                    <span style={{
+                                        fontSize: "10px",
+                                        color: "#374151",
+                                        flexShrink: 0,
+                                    }}>
+                                        {t.rowCount.toLocaleString()}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
-                {/* ── RIGHT: editable SQL + run button ── */}
-                <div style={{ ...card, padding: "22px 24px", display: "flex", flexDirection: "column", gap: "14px" }}>
+                {/* ══ RIGHT: prompt + SQL + results ══════════════════════════ */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px", minWidth: 0 }}>
 
-                    {/* header */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span style={labelStyle}>Generated SQL</span>
-                            {isDirty && (
-                                <span style={{
-                                    fontSize: "10px", fontWeight: 600, color: "#fbbf24",
-                                    background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)",
-                                    borderRadius: "6px", padding: "2px 7px",
-                                }}>edited</span>
-                            )}
+                    {/* ── Prompt + SQL editor row ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", alignItems: "stretch" }}>
+
+                        {/* LEFT card: NL prompt */}
+                        <div style={{ ...card, padding: "20px", display: "flex", flexDirection: "column" }}>
+                            <form
+                                onSubmit={e => { e.preventDefault(); generateSQL(prompt); }}
+                                style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1 }}
+                            >
+                                <label style={labelStyle}>Natural Language Prompt</label>
+
+                                <div style={{ flex: 1 }}>
+                                    <SQLEditor
+                                        value={prompt}
+                                        onChange={setPrompt}
+                                        placeholder="e.g. show me employees whose salary is less than 60000…"
+                                        disabled={generating}
+                                        minHeight={130}
+                                    />
+                                </div>
+
+                                {/* Schema hint — tells user the LLM knows their tables */}
+                                {tables.length > 0 && (
+                                    <div style={{
+                                        display: "flex", alignItems: "flex-start", gap: "7px",
+                                        padding: "8px 10px", borderRadius: "8px",
+                                        background: "rgba(99,102,241,0.06)",
+                                        border: "1px solid rgba(99,102,241,0.15)",
+                                    }}>
+                                        <svg width="12" height="12" fill="none" stroke="#818cf8" strokeWidth="2"
+                                            viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: "1px" }}>
+                                            <path strokeLinecap="round" strokeLinejoin="round"
+                                                d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                                        </svg>
+                                        <span style={{ fontSize: "11px", color: "#818cf8", lineHeight: 1.5 }}>
+                                            AI knows your schema: <strong style={{ color: "#a5b4fc" }}>
+                                                {tables.map(t => t.name).join(", ")}
+                                            </strong>
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* Generate button */}
+                                <button
+                                    type="submit"
+                                    disabled={generating || !prompt.trim()}
+                                    style={{
+                                        padding: "11px",
+                                        borderRadius: "10px",
+                                        fontSize: "13px",
+                                        fontWeight: 700,
+                                        background: (generating || !prompt.trim())
+                                            ? "rgba(99,102,241,0.3)"
+                                            : "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                                        color: "#fff",
+                                        border: "none",
+                                        cursor: (generating || !prompt.trim()) ? "not-allowed" : "pointer",
+                                        boxShadow: (generating || !prompt.trim()) ? "none" : "0 4px 14px rgba(99,102,241,0.3)",
+                                        display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                                    }}
+                                    onMouseEnter={e => { if (!generating) (e.currentTarget as HTMLElement).style.filter = "brightness(1.12)"; }}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
+                                >
+                                    {generating && <Spinner />}
+                                    {generating ? "Generating SQL…" : "Generate SQL →"}
+                                </button>
+
+                                {/* Gen error */}
+                                {genError && (
+                                    <div style={{
+                                        background: "rgba(239,68,68,0.08)",
+                                        border: "1px solid rgba(239,68,68,0.2)",
+                                        borderRadius: "10px",
+                                        padding: "10px 12px",
+                                    }}>
+                                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", margin: "0 0 2px" }}>⚠ Generation Error</p>
+                                        <p style={{ fontSize: "11px", color: "#fca5a5", margin: 0, wordBreak: "break-word" }}>{genError}</p>
+                                    </div>
+                                )}
+                            </form>
                         </div>
 
-                        <div style={{ display: "flex", gap: "6px" }}>
-                            {isDirty && (
-                                <button
-                                    onClick={() => setEditedSql(generatedSql)}
-                                    style={{
-                                        fontSize: "11px", fontWeight: 600, padding: "4px 11px", borderRadius: "7px",
-                                        background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                                        color: "#9CA3AF", cursor: "pointer",
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.09)"}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"}
-                                >↺ Reset</button>
+                        {/* RIGHT card: Generated SQL + run */}
+                        <div style={{ ...card, padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+
+                            {/* Header */}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span style={labelStyle}>Generated SQL</span>
+                                    {isDirty && (
+                                        <span style={{
+                                            fontSize: "10px", fontWeight: 600, color: "#fbbf24",
+                                            background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)",
+                                            borderRadius: "6px", padding: "2px 7px",
+                                        }}>edited</span>
+                                    )}
+                                    {selectedTable && (
+                                        <span style={{
+                                            fontSize: "10px", fontWeight: 600, color: "#34d399",
+                                            background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)",
+                                            borderRadius: "6px", padding: "2px 7px",
+                                        }}>{selectedTable.name}</span>
+                                    )}
+                                </div>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                    {isDirty && (
+                                        <button onClick={() => setEditedSql(generatedSql)}
+                                            style={{
+                                                fontSize: "11px", fontWeight: 600, padding: "4px 10px", borderRadius: "7px",
+                                                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                                                color: "#9CA3AF", cursor: "pointer",
+                                            }}>↺ Reset</button>
+                                    )}
+                                    <button onClick={handleCopy} disabled={!editedSql}
+                                        style={{
+                                            fontSize: "11px", fontWeight: 600, padding: "4px 10px", borderRadius: "7px",
+                                            background: copied ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.04)",
+                                            border: copied ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(255,255,255,0.08)",
+                                            color: copied ? "#34d399" : "#9CA3AF",
+                                            cursor: editedSql ? "pointer" : "not-allowed",
+                                            display: "flex", alignItems: "center", gap: "4px",
+                                        }}>
+                                        {copied ? "✓ Copied" : "Copy"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* SQL editor */}
+                            {generating ? (
+                                <div style={{
+                                    flex: 1, minHeight: 130, borderRadius: "10px",
+                                    background: "#080a12", border: "1px solid rgba(255,255,255,0.06)",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    gap: "10px", color: "#4B5563", fontSize: "12px",
+                                }}>
+                                    <Spinner size={18} color="#818cf8" />
+                                    Waiting for AI response…
+                                </div>
+                            ) : (
+                                <div style={{ flex: 1 }}>
+                                    <SQLEditor
+                                        value={editedSql}
+                                        onChange={setEditedSql}
+                                        placeholder="SQL will appear here — or click a table on the left to auto-fill."
+                                        disabled={running}
+                                        minHeight={130}
+                                    />
+                                </div>
                             )}
+
+                            <p style={{ fontSize: "11px", color: "#374151", margin: 0 }}>
+                                ✏️ Edit the SQL if needed, then click Run.
+                            </p>
+
+                            {/* Run button */}
                             <button
-                                onClick={handleCopy}
-                                disabled={!editedSql}
+                                onClick={runSQL}
+                                disabled={running || !editedSql.trim()}
                                 style={{
-                                    fontSize: "11px", fontWeight: 600, padding: "4px 11px", borderRadius: "7px",
-                                    background: copied ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.04)",
-                                    border: copied ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(255,255,255,0.08)",
-                                    color: copied ? "#34d399" : "#9CA3AF",
-                                    cursor: editedSql ? "pointer" : "not-allowed",
-                                    display: "flex", alignItems: "center", gap: "4px",
+                                    width: "100%", padding: "12px", borderRadius: "10px",
+                                    fontSize: "14px", fontWeight: 700,
+                                    background: (running || !editedSql.trim())
+                                        ? "rgba(16,185,129,0.25)"
+                                        : "linear-gradient(135deg,#10b981,#059669)",
+                                    color: "#fff", border: "none",
+                                    cursor: (running || !editedSql.trim()) ? "not-allowed" : "pointer",
+                                    boxShadow: (running || !editedSql.trim()) ? "none" : "0 4px 14px rgba(16,185,129,0.3)",
+                                    display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
                                 }}
+                                onMouseEnter={e => { if (!running && editedSql.trim()) (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
                             >
-                                {copied
-                                    ? <><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>Copied</>
-                                    : <><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>Copy</>
+                                {running && <Spinner />}
+                                {running
+                                    ? "Running…"
+                                    : <><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><polygon points="5 3 19 12 5 21 5 3" /></svg>Run Query</>
                                 }
                             </button>
                         </div>
                     </div>
 
-                    {/* SQL editor — loading skeleton OR real editor */}
-                    {generating ? (
-                        <div style={{
-                            flex: 1, minHeight: 148, borderRadius: "10px",
-                            background: "#080a12", border: "1px solid rgba(255,255,255,0.06)",
-                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                            gap: "12px", color: "#4B5563",
-                        }}>
-                            <Spinner size={20} color="#818cf8" />
-                            <span style={{ fontSize: "12px", fontWeight: 600 }}>Generating SQL…</span>
-                        </div>
-                    ) : (
-                        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                            <SQLEditor
-                                value={editedSql}
-                                onChange={setEditedSql}
-                                placeholder="SQL will appear here after you click Generate SQL →"
-                                disabled={running}
-                                minHeight={148}
-                            />
+                    {/* ── Results panel ── */}
+                    {hasResult && (
+                        <div ref={resultsRef} style={{ animation: "fadeUp 0.25s ease" }}>
+                            {rowError ? (
+                                <div style={{
+                                    background: "rgba(239,68,68,0.08)",
+                                    border: "1px solid rgba(239,68,68,0.2)",
+                                    borderRadius: "12px",
+                                    padding: "14px 16px",
+                                }}>
+                                    <p style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", margin: "0 0 3px" }}>⚠ Execution Error</p>
+                                    <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0, fontFamily: "monospace", wordBreak: "break-word" }}>{rowError}</p>
+                                </div>
+                            ) : (
+                                <div style={{ ...card, overflow: "hidden" }}>
+                                    {/* Results header */}
+                                    <div style={{
+                                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                                        padding: "14px 18px",
+                                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                                        flexWrap: "wrap", gap: "8px",
+                                    }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                            <span style={labelStyle}>Results</span>
+                                            {selectedTable && (
+                                                <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff", fontFamily: "monospace" }}>
+                                                    {selectedTable.name}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                            <span style={{
+                                                fontSize: "11px", color: "#34d399",
+                                                background: "rgba(16,185,129,0.08)",
+                                                border: "1px solid rgba(16,185,129,0.2)",
+                                                borderRadius: "20px",
+                                                padding: "3px 10px",
+                                                fontWeight: 700,
+                                            }}>
+                                                {rows.length.toLocaleString()} row{rows.length !== 1 ? "s" : ""} returned
+                                            </span>
+                                            <span style={{ fontSize: "11px", color: "#4B5563" }}>
+                                                {columns.length} col{columns.length !== 1 ? "s" : ""}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Data */}
+                                    <div style={{ padding: "16px 18px" }}>
+                                        {rows.length === 0
+                                            ? <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
+                                                Query executed successfully — no rows returned.
+                                              </p>
+                                            : <DataTable columns={columns} rows={rows} pageSize={25} />
+                                        }
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
-
-                    <p style={{ fontSize: "11px", color: "#374151", margin: 0 }}>
-                        ✏️ Edit the SQL above if needed, then click Run.
-                    </p>
-
-                    {/* Run button */}
-                    <button
-                        onClick={runSQL}
-                        disabled={running || !editedSql.trim()}
-                        style={{
-                            width: "100%", padding: "12px", borderRadius: "10px",
-                            fontSize: "14px", fontWeight: 700,
-                            background: (running || !editedSql.trim())
-                                ? "rgba(16,185,129,0.25)"
-                                : "linear-gradient(135deg,#10b981,#059669)",
-                            color: "#fff", border: "none",
-                            cursor: (running || !editedSql.trim()) ? "not-allowed" : "pointer",
-                            boxShadow: (running || !editedSql.trim()) ? "none" : "0 4px 14px rgba(16,185,129,0.3)",
-                            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                        }}
-                        onMouseEnter={e => { if (!running && editedSql.trim()) (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
-                    >
-                        {running && <Spinner />}
-                        {running
-                            ? "Running…"
-                            : <><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><polygon points="5 3 19 12 5 21 5 3" /></svg>Run Query</>
-                        }
-                    </button>
                 </div>
             </div>
-
-            {/* ── results table (always below both panels) ── */}
-            {hasResult && (
-                <div ref={resultsRef} style={{ animation: "fadeUp 0.25s ease" }}>
-                    {rowError ? (
-                        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "12px", padding: "14px 16px" }}>
-                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", margin: "0 0 3px" }}>⚠ Execution Error</p>
-                            <p style={{ fontSize: "12px", color: "#fca5a5", margin: 0, fontFamily: "monospace", wordBreak: "break-word" }}>{rowError}</p>
-                        </div>
-                    ) : (
-                        <div style={{ ...card, padding: "20px 22px" }}>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", paddingBottom: "12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                <span style={labelStyle}>Results</span>
-                                <span style={{ fontSize: "11px", color: "#4B5563", fontWeight: 600 }}>
-                                    {rows.length.toLocaleString()} row{rows.length !== 1 ? "s" : ""} returned
-                                </span>
-                            </div>
-                            {rows.length === 0
-                                ? <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Query executed successfully — no rows returned.</p>
-                                : <DataTable columns={columns} rows={rows} pageSize={20} />
-                            }
-                        </div>
-                    )}
-                </div>
-            )}
 
             <style>{`
                 @keyframes spin    { to { transform: rotate(360deg); } }

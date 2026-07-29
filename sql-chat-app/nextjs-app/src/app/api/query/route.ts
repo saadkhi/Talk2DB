@@ -12,7 +12,6 @@ export const maxDuration = 120;
 
 async function getSchemaContext(encryptedUrl: string): Promise<string> {
     try {
-        // Use executeQuery (which handles Neon fresh-client strategy) for schema introspection
         const tablesResult = await executeQuery(
             encryptedUrl,
             `SELECT table_name FROM information_schema.tables
@@ -24,14 +23,47 @@ async function getSchemaContext(encryptedUrl: string): Promise<string> {
 
         const tables = await Promise.all(
             tableNames.map(async (tableName) => {
+                const safeTable = tableName.replace(/'/g, "''");
+
+                // Get columns with type + primary key info
                 const colResult = await executeQuery(
                     encryptedUrl,
-                    `SELECT column_name, data_type FROM information_schema.columns
-                     WHERE table_name = '${tableName.replace(/'/g, "''")}' AND table_schema = 'public'
-                     ORDER BY ordinal_position`
+                    `SELECT
+                        c.column_name,
+                        c.data_type,
+                        c.is_nullable,
+                        CASE WHEN kcu.column_name IS NOT NULL THEN 'PK' ELSE '' END AS pk
+                     FROM information_schema.columns c
+                     LEFT JOIN (
+                         SELECT kcu.column_name
+                         FROM information_schema.key_column_usage kcu
+                         JOIN information_schema.table_constraints tc
+                             ON tc.constraint_name = kcu.constraint_name
+                             AND tc.table_name = kcu.table_name
+                         WHERE tc.constraint_type = 'PRIMARY KEY'
+                           AND kcu.table_name = '${safeTable}'
+                           AND kcu.table_schema = 'public'
+                     ) kcu ON kcu.column_name = c.column_name
+                     WHERE c.table_name = '${safeTable}' AND c.table_schema = 'public'
+                     ORDER BY c.ordinal_position`
                 );
-                const cols = colResult.rows.map((c: any) => `${c.column_name} (${c.data_type})`).join(", ");
-                return `Table: ${tableName}\nColumns: ${cols}`;
+
+                // Row count so LLM knows the scale of data
+                const countResult = await executeQuery(
+                    encryptedUrl,
+                    `SELECT COUNT(*) AS count FROM "${tableName.replace(/"/g, '""')}"`
+                );
+                const rowCount = parseInt(countResult.rows[0]?.count ?? "0", 10);
+
+                const cols = colResult.rows
+                    .map((c: any) => {
+                        const pk = c.pk === "PK" ? " [PK]" : "";
+                        const nullable = c.is_nullable === "YES" ? " nullable" : " NOT NULL";
+                        return `  - ${c.column_name}: ${c.data_type}${pk}${nullable}`;
+                    })
+                    .join("\n");
+
+                return `Table: "${tableName}" (${rowCount.toLocaleString()} rows)\nColumns:\n${cols}`;
             })
         );
 
@@ -77,19 +109,29 @@ export async function POST(req: Request) {
         const schemaContext = await getSchemaContext(user.dbConnectionString);
 
         const dialectInstructions: Record<string, string> = {
-            postgresql: "Generate a syntactically correct PostgreSQL SELECT query. Use double-quoted identifiers for names with spaces.",
+            postgresql: "Generate a syntactically correct PostgreSQL SELECT query. Use double-quoted identifiers only when a name contains spaces or mixed case.",
             mysql:      "Generate a syntactically correct MySQL SELECT query. Use backtick-quoted identifiers. Do NOT use PostgreSQL-specific functions.",
             sqlite:     "Generate a syntactically correct SQLite SELECT query. Avoid ARRAY_AGG and DATE_TRUNC — use strftime instead.",
         };
         const dialectHint = dialectInstructions[dialect] ?? dialectInstructions.postgresql;
 
-        const systemPrompt = `You are a ${dialect.toUpperCase()} SQL expert. ${dialectHint}
-Return ONLY the raw SQL SELECT query text with NO markdown code blocks, NO comments, NO explanation.
-Just the pure SQL query on one or multiple lines.`;
+        const systemPrompt = schemaContext
+            ? `You are a ${dialect.toUpperCase()} SQL expert with access to the user's exact database schema below.
+
+CRITICAL RULES:
+1. You MUST use ONLY the table names and column names listed in the schema — do NOT invent, guess, or rename them.
+2. ${dialectHint}
+3. Return ONLY the raw SQL SELECT query — NO markdown, NO code fences, NO explanation, NO comments.
+4. If the user's request matches a table in the schema, use that table's EXACT name as shown (e.g. if schema says "employees", write FROM "employees").
+
+DATABASE SCHEMA:
+${schemaContext}`
+            : `You are a ${dialect.toUpperCase()} SQL expert. ${dialectHint}
+Return ONLY the raw SQL SELECT query — NO markdown, NO code fences, NO explanation.`;
 
         const userMessage = schemaContext
-            ? `Database Schema:\n${schemaContext}\n\nUser Request: ${prompt}\n\nGenerate SQL SELECT query.`
-            : `User Request: ${prompt}\n\nGenerate SQL SELECT query.`;
+            ? `User Request: ${prompt}\n\nGenerate a SQL SELECT query using ONLY the exact table and column names from the schema provided in your instructions.`
+            : `User Request: ${prompt}\n\nGenerate a SQL SELECT query.`;
 
         let rawSQL: string;
         try {
