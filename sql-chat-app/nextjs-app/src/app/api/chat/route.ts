@@ -7,6 +7,9 @@ import { getUserDbPool } from "@/lib/dbConnection";
 import { resolveUserWithDb } from "@/lib/resolveUser";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 
+// Allow up to 120s for the APIFreeLLM free-tier response
+export const maxDuration = 120;
+
 const SYSTEM_PROMPT = `You are Talk2DB, an expert database assistant. You help users interact with their PostgreSQL database using plain English.
 
 Your capabilities:

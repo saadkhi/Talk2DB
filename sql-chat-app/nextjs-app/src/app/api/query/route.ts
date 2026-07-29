@@ -7,6 +7,9 @@ import { isSQLSafe, extractSQL } from "@/lib/sqlSafety";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 import { resolveUserWithDb } from "@/lib/resolveUser";
 
+// Allow up to 120s for the APIFreeLLM free-tier response
+export const maxDuration = 120;
+
 async function getSchemaContext(encryptedUrl: string): Promise<string> {
     try {
         // Use executeQuery (which handles Neon fresh-client strategy) for schema introspection

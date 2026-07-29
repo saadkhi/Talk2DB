@@ -210,8 +210,8 @@ const anthropicProvider: LLMProvider = {
 
 // ── APIFreeLLM ─────────────────────────────────────────────────────────────
 // Free, unlimited API — https://apifreellm.com
-// NOTE: Free tier has a ~20s response delay. Works fine locally.
-// On Vercel (10s serverless limit) it will timeout — use Gemini/OpenRouter there.
+// The free tier can take 30-120s to respond depending on server load.
+// All timeouts are set to 120s to give it the maximum chance to reply.
 //
 // IMPORTANT: uses Node's native https module instead of fetch because
 // apifreellm.com stalls indefinitely with undici (Next.js's fetch client).
@@ -231,6 +231,9 @@ const apiFreeLLMProvider: LLMProvider = {
                     hostname: "apifreellm.com",
                     path: "/api/v1/chat",
                     method: "POST",
+                    // Set socket-level timeout to 120s so idle periods during
+                    // the free-tier server processing don't kill the connection
+                    timeout: 120000,
                     headers: {
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${apiKey}`,
@@ -238,10 +241,10 @@ const apiFreeLLMProvider: LLMProvider = {
                     },
                 };
 
-                // 35s hard timeout — free tier advertises ~20s delay
+                // 120s hard deadline — covers worst-case free-tier delays
                 const timer = setTimeout(() => {
-                    req.destroy(new Error("APIFreeLLM request timed out after 35s"));
-                }, 35000);
+                    req.destroy(new Error("APIFreeLLM request timed out after 120s"));
+                }, 120000);
 
                 const req = https.request(options, (res) => {
                     let data = "";
@@ -271,9 +274,13 @@ const apiFreeLLMProvider: LLMProvider = {
                     reject(new Error(`APIFreeLLM request failed: ${e.message}`));
                 });
 
+                // "timeout" fires when the socket is idle for options.timeout ms.
+                // We do NOT destroy here — we let the 120s hard timer above
+                // handle actual expiry. Destroying on idle-timeout would kill
+                // the connection while the server is still processing.
                 req.on("timeout", () => {
-                    clearTimeout(timer);
-                    req.destroy(new Error("APIFreeLLM socket timeout"));
+                    // Extend the socket activity window — keep the connection alive
+                    req.socket?.setTimeout(120000);
                 });
 
                 req.write(body);
