@@ -2,7 +2,7 @@
  * llm.ts — Universal LLM client for Talk2DB
  *
  * Active provider: OpenRouter (OPENROUTER_API_KEY)
- *   Model  : meta-llama/llama-3.3-70b-instruct:free  (free tier)
+ *   Model  : openai/gpt-oss-20b:free  (~2s response, free tier)
  *   Timeout: 30s
  *
  * Other providers can be enabled by setting their API key env var.
@@ -115,7 +115,7 @@ const openRouterProvider: LLMProvider = {
     call: async (systemPrompt, userMessage) => {
         const apiKey = process.env.OPENROUTER_API_KEY!;
         const baseUrl = (process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1").replace(/\/$/, "");
-        const model = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+        const model = process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b:free";
 
         const response = await fetch(`${baseUrl}/chat/completions`, {
             method: "POST",
