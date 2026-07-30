@@ -1,40 +1,16 @@
 /**
  * llm.ts — Universal LLM client for Talk2DB
  *
- * How it works:
- *   - Set ANY combination of API keys in your environment variables.
- *   - The client auto-detects which providers are configured and tries
- *     them in priority order until one succeeds.
- *   - If a provider's key is missing it is skipped entirely (not an error).
- *   - If a provider's key is set but the call fails the next provider is tried.
- *   - All failures are logged with the real error message.
+ * Active provider: OpenRouter (OPENROUTER_API_KEY)
+ *   Model  : meta-llama/llama-3.3-70b-instruct:free  (free tier)
+ *   Timeout: 30s
  *
- * Supported providers (set the corresponding env var to enable):
- *
- *   GEMINI_API_KEY       — Google Gemini (free tier at aistudio.google.com/apikey)
- *                          Optional: GEMINI_MODEL (default: gemini-1.5-flash)
- *
- *   OPENAI_API_KEY       — OpenAI (GPT-4o, GPT-4o-mini, etc.)
- *                          Optional: OPENAI_MODEL   (default: gpt-4o-mini)
- *                          Optional: OPENAI_BASE_URL (default: https://openai.com/v1)
- *                                    → set this to use any OpenAI-compatible API
- *                                      (Together AI, Groq, Fireworks, Mistral, etc.)
- *
- *   OPENROUTER_API_KEY   — OpenRouter (access to 100+ models, free tier available)
- *                          Optional: OPENROUTER_MODEL (default: meta-llama/llama-3.3-70b-instruct:free)
- *                          Optional: OPENROUTER_BASE_URL
- *
- *   ANTHROPIC_API_KEY    — Anthropic Claude
- *                          Optional: ANTHROPIC_MODEL (default: claude-3-haiku-20240307)
- *
- * Priority order (first configured key wins, skipping unconfigured ones):
- *   Gemini → OpenAI-compatible → OpenRouter → Anthropic
- *
- * Override priority with LLM_PROVIDER env var:
- *   LLM_PROVIDER=openai         → try OpenAI first
- *   LLM_PROVIDER=openrouter     → try OpenRouter first
- *   LLM_PROVIDER=gemini         → try Gemini first (default)
- *   LLM_PROVIDER=anthropic      → try Anthropic first
+ * Other providers can be enabled by setting their API key env var.
+ * Override the priority with LLM_PROVIDER env var:
+ *   LLM_PROVIDER=openrouter   (current)
+ *   LLM_PROVIDER=gemini
+ *   LLM_PROVIDER=openai
+ *   LLM_PROVIDER=anthropic
  */
 
 interface LLMProvider {
@@ -208,69 +184,17 @@ const anthropicProvider: LLMProvider = {
     },
 };
 
-// ── APIFreeLLM ─────────────────────────────────────────────────────────────
-// Free, unlimited API — https://apifreellm.com
-// Uses fetch (works on both Vercel serverless and local Node.js).
-// The free tier can take 30-60s — timeout is set to 115s to stay under
-// Vercel Pro's 120s limit and well above the worst-case response time.
-const apiFreeLLMProvider: LLMProvider = {
-    name: "APIFreeLLM",
-    isConfigured: () => isRealKey(process.env.FREEAPI_KEY),
-    call: async (systemPrompt, userMessage) => {
-        const apiKey = process.env.FREEAPI_KEY!;
-        const combinedMessage = `${systemPrompt}\n\n${userMessage}`;
-
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 115000); // 115s timeout
-
-        try {
-            const response = await fetch("https://apifreellm.com/api/v1/chat", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${apiKey}`,
-                },
-                body: JSON.stringify({ message: combinedMessage }),
-                signal: controller.signal,
-            });
-
-            if (response.status === 429) {
-                throw new Error("APIFreeLLM rate limited — wait 20 seconds and retry");
-            }
-            if (!response.ok) {
-                const errText = await response.text().catch(() => "");
-                throw new Error(`APIFreeLLM error (${response.status}): ${errText}`);
-            }
-
-            const data = await response.json();
-            if (data?.success && data?.response) {
-                return String(data.response).trim();
-            }
-            throw new Error("Invalid APIFreeLLM response format");
-        } catch (e: any) {
-            if (e.name === "AbortError") {
-                throw new Error("APIFreeLLM request timed out after 115s");
-            }
-            throw e;
-        } finally {
-            clearTimeout(timer);
-        }
-    },
-};
-
 // ── Provider registry & priority ───────────────────────────────────────────
 const ALL_PROVIDERS: Record<string, LLMProvider> = {
+    openrouter: openRouterProvider,
     gemini: geminiProvider,
     openai: openaiProvider,
-    openrouter: openRouterProvider,
     anthropic: anthropicProvider,
-    apifreellm: apiFreeLLMProvider,
 };
 
-// Default order — override with LLM_PROVIDER env var to put your preferred
-// provider first (e.g. LLM_PROVIDER=apifreellm)
-// APIFreeLLM is last by default: it works but has a ~25s delay on the free tier.
-const DEFAULT_ORDER = ["gemini", "openai", "openrouter", "anthropic", "apifreellm"];
+// Default order — OpenRouter first (it's the configured provider).
+// Override with LLM_PROVIDER env var if needed.
+const DEFAULT_ORDER = ["openrouter", "gemini", "openai", "anthropic"];
 
 function getProviderOrder(): LLMProvider[] {
     const preferred = process.env.LLM_PROVIDER?.toLowerCase().trim();
@@ -295,9 +219,7 @@ export async function callLLM(
 
     if (providers.length === 0) {
         throw new Error(
-            "No AI provider configured. Set at least one of: " +
-            "GEMINI_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, ANTHROPIC_API_KEY, or FREEAPI_KEY " +
-            "in your environment variables."
+            "No AI provider configured. Set OPENROUTER_API_KEY in your environment variables."
         );
     }
 
