@@ -210,83 +210,51 @@ const anthropicProvider: LLMProvider = {
 
 // ── APIFreeLLM ─────────────────────────────────────────────────────────────
 // Free, unlimited API — https://apifreellm.com
-// The free tier can take 30-120s to respond depending on server load.
-// All timeouts are set to 120s to give it the maximum chance to reply.
-//
-// IMPORTANT: uses Node's native https module instead of fetch because
-// apifreellm.com stalls indefinitely with undici (Next.js's fetch client).
+// Uses fetch (works on both Vercel serverless and local Node.js).
+// The free tier can take 30-60s — timeout is set to 115s to stay under
+// Vercel Pro's 120s limit and well above the worst-case response time.
 const apiFreeLLMProvider: LLMProvider = {
     name: "APIFreeLLM",
     isConfigured: () => isRealKey(process.env.FREEAPI_KEY),
-    call: (systemPrompt, userMessage) => {
-        return new Promise((resolve, reject) => {
-            // Dynamically import https so this module stays edge-compatible
-            // (the import is never reached in edge runtimes; only in Node.js)
-            import("https").then(({ default: https }) => {
-                const combinedMessage = `${systemPrompt}\n\n${userMessage}`;
-                const body = JSON.stringify({ message: combinedMessage });
-                const apiKey = process.env.FREEAPI_KEY!;
+    call: async (systemPrompt, userMessage) => {
+        const apiKey = process.env.FREEAPI_KEY!;
+        const combinedMessage = `${systemPrompt}\n\n${userMessage}`;
 
-                const options = {
-                    hostname: "apifreellm.com",
-                    path: "/api/v1/chat",
-                    method: "POST",
-                    // Set socket-level timeout to 120s so idle periods during
-                    // the free-tier server processing don't kill the connection
-                    timeout: 120000,
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${apiKey}`,
-                        "Content-Length": Buffer.byteLength(body),
-                    },
-                };
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 115000); // 115s timeout
 
-                // 120s hard deadline — covers worst-case free-tier delays
-                const timer = setTimeout(() => {
-                    req.destroy(new Error("APIFreeLLM request timed out after 120s"));
-                }, 120000);
+        try {
+            const response = await fetch("https://apifreellm.com/api/v1/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify({ message: combinedMessage }),
+                signal: controller.signal,
+            });
 
-                const req = https.request(options, (res) => {
-                    let data = "";
-                    res.on("data", (chunk) => { data += chunk; });
-                    res.on("end", () => {
-                        clearTimeout(timer);
-                        try {
-                            if (res.statusCode === 429) {
-                                return reject(new Error("APIFreeLLM rate limited — wait 20 seconds and retry"));
-                            }
-                            if (res.statusCode !== 200) {
-                                return reject(new Error(`APIFreeLLM error (${res.statusCode}): ${data}`));
-                            }
-                            const parsed = JSON.parse(data);
-                            if (parsed?.success && parsed?.response) {
-                                return resolve(String(parsed.response).trim());
-                            }
-                            reject(new Error("Invalid APIFreeLLM response format"));
-                        } catch (e) {
-                            reject(new Error(`APIFreeLLM parse error: ${(e as Error).message}`));
-                        }
-                    });
-                });
+            if (response.status === 429) {
+                throw new Error("APIFreeLLM rate limited — wait 20 seconds and retry");
+            }
+            if (!response.ok) {
+                const errText = await response.text().catch(() => "");
+                throw new Error(`APIFreeLLM error (${response.status}): ${errText}`);
+            }
 
-                req.on("error", (e) => {
-                    clearTimeout(timer);
-                    reject(new Error(`APIFreeLLM request failed: ${e.message}`));
-                });
-
-                // "timeout" fires when the socket is idle for options.timeout ms.
-                // We do NOT destroy here — we let the 120s hard timer above
-                // handle actual expiry. Destroying on idle-timeout would kill
-                // the connection while the server is still processing.
-                req.on("timeout", () => {
-                    // Extend the socket activity window — keep the connection alive
-                    req.socket?.setTimeout(120000);
-                });
-
-                req.write(body);
-                req.end();
-            }).catch(reject);
-        });
+            const data = await response.json();
+            if (data?.success && data?.response) {
+                return String(data.response).trim();
+            }
+            throw new Error("Invalid APIFreeLLM response format");
+        } catch (e: any) {
+            if (e.name === "AbortError") {
+                throw new Error("APIFreeLLM request timed out after 115s");
+            }
+            throw e;
+        } finally {
+            clearTimeout(timer);
+        }
     },
 };
 
