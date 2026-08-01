@@ -12,10 +12,21 @@ const TOOLS = [
         title: "Query Studio",
         description: "Write or generate SQL in plain English. Instant, secure execution.",
         accent: "#6366f1",
-        bg: "rgba(99,102,241,0.1)",
-        icon: (
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+        bg: "rgba(99,102,241,0.12)",
+        glow: "rgba(99,102,241,0.25)",
+        illustration: (
+            <svg width="80" height="64" viewBox="0 0 80 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="72" height="56" rx="8" fill="rgba(99,102,241,0.08)" stroke="rgba(99,102,241,0.3)" strokeWidth="1"/>
+                <rect x="4" y="4" width="72" height="14" rx="8" fill="rgba(99,102,241,0.15)"/>
+                <circle cx="14" cy="11" r="3" fill="#ef4444" opacity="0.7"/>
+                <circle cx="24" cy="11" r="3" fill="#f59e0b" opacity="0.7"/>
+                <circle cx="34" cy="11" r="3" fill="#10b981" opacity="0.7"/>
+                <text x="12" y="31" fontFamily="monospace" fontSize="7" fill="#818cf8" opacity="0.9">SELECT</text>
+                <text x="12" y="41" fontFamily="monospace" fontSize="7" fill="#94a3b8" opacity="0.7">  COUNT(*), SUM(revenue)</text>
+                <text x="12" y="51" fontFamily="monospace" fontSize="7" fill="#818cf8" opacity="0.9">FROM</text>
+                <text x="30" y="51" fontFamily="monospace" fontSize="7" fill="#a3e635" opacity="0.8"> sales</text>
+                <rect x="60" y="46" width="12" height="8" rx="3" fill="rgba(99,102,241,0.5)"/>
+                <path d="M63 50h6M63 52h4" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
             </svg>
         ),
     },
@@ -24,10 +35,24 @@ const TOOLS = [
         title: "Data Visualizer",
         description: "Turn your data into beautiful charts and dashboards.",
         accent: "#3b82f6",
-        bg: "rgba(59,130,246,0.1)",
-        icon: (
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
+        bg: "rgba(59,130,246,0.12)",
+        glow: "rgba(59,130,246,0.25)",
+        illustration: (
+            <svg width="80" height="64" viewBox="0 0 80 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="72" height="56" rx="8" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.2)" strokeWidth="1"/>
+                {/* Bar chart */}
+                <rect x="14" y="38" width="10" height="16" rx="2" fill="rgba(59,130,246,0.7)"/>
+                <rect x="28" y="28" width="10" height="26" rx="2" fill="rgba(99,102,241,0.7)"/>
+                <rect x="42" y="20" width="10" height="34" rx="2" fill="rgba(59,130,246,0.5)"/>
+                <rect x="56" y="32" width="10" height="22" rx="2" fill="rgba(139,92,246,0.7)"/>
+                {/* Trend line */}
+                <path d="M19 36 L33 26 L47 18 L61 30" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 1" opacity="0.8"/>
+                <circle cx="19" cy="36" r="2" fill="#22d3ee" opacity="0.9"/>
+                <circle cx="33" cy="26" r="2" fill="#22d3ee" opacity="0.9"/>
+                <circle cx="47" cy="18" r="2" fill="#22d3ee" opacity="0.9"/>
+                <circle cx="61" cy="30" r="2" fill="#22d3ee" opacity="0.9"/>
+                {/* X axis */}
+                <line x1="10" y1="55" x2="70" y2="55" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
             </svg>
         ),
     },
@@ -36,10 +61,31 @@ const TOOLS = [
         title: "Schema Explorer",
         description: "Explore tables, columns, relationships with an interactive tree.",
         accent: "#f59e0b",
-        bg: "rgba(245,158,11,0.1)",
-        icon: (
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+        bg: "rgba(245,158,11,0.12)",
+        glow: "rgba(245,158,11,0.25)",
+        illustration: (
+            <svg width="80" height="64" viewBox="0 0 80 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Root node */}
+                <rect x="28" y="6" width="24" height="12" rx="4" fill="rgba(245,158,11,0.3)" stroke="rgba(245,158,11,0.6)" strokeWidth="1"/>
+                <text x="40" y="14" fontFamily="monospace" fontSize="6" fill="#fbbf24" textAnchor="middle">users</text>
+                {/* Left branch */}
+                <line x1="40" y1="18" x2="20" y2="30" stroke="rgba(245,158,11,0.4)" strokeWidth="1" strokeDasharray="2 1"/>
+                <rect x="8" y="30" width="24" height="12" rx="4" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.4)" strokeWidth="1"/>
+                <text x="20" y="38" fontFamily="monospace" fontSize="6" fill="#fbbf24" textAnchor="middle">orders</text>
+                {/* Right branch */}
+                <line x1="40" y1="18" x2="60" y2="30" stroke="rgba(245,158,11,0.4)" strokeWidth="1" strokeDasharray="2 1"/>
+                <rect x="48" y="30" width="24" height="12" rx="4" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.4)" strokeWidth="1"/>
+                <text x="60" y="38" fontFamily="monospace" fontSize="6" fill="#fbbf24" textAnchor="middle">products</text>
+                {/* Leaf nodes */}
+                <line x1="20" y1="42" x2="14" y2="52" stroke="rgba(245,158,11,0.3)" strokeWidth="1"/>
+                <rect x="6" y="52" width="16" height="8" rx="3" fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.3)" strokeWidth="1"/>
+                <text x="14" y="58" fontFamily="monospace" fontSize="5" fill="#f59e0b" textAnchor="middle">id</text>
+                <line x1="20" y1="42" x2="26" y2="52" stroke="rgba(245,158,11,0.3)" strokeWidth="1"/>
+                <rect x="18" y="52" width="16" height="8" rx="3" fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.3)" strokeWidth="1"/>
+                <text x="26" y="58" fontFamily="monospace" fontSize="5" fill="#f59e0b" textAnchor="middle">name</text>
+                <line x1="60" y1="42" x2="60" y2="52" stroke="rgba(245,158,11,0.3)" strokeWidth="1"/>
+                <rect x="52" y="52" width="16" height="8" rx="3" fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.3)" strokeWidth="1"/>
+                <text x="60" y="58" fontFamily="monospace" fontSize="5" fill="#f59e0b" textAnchor="middle">price</text>
             </svg>
         ),
     },
@@ -48,10 +94,26 @@ const TOOLS = [
         title: "Report Builder",
         description: "Create insightful reports and executive summaries in one click.",
         accent: "#10b981",
-        bg: "rgba(16,185,129,0.1)",
-        icon: (
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        bg: "rgba(16,185,129,0.12)",
+        glow: "rgba(16,185,129,0.25)",
+        illustration: (
+            <svg width="80" height="64" viewBox="0 0 80 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Document */}
+                <rect x="18" y="4" width="44" height="56" rx="6" fill="rgba(16,185,129,0.06)" stroke="rgba(16,185,129,0.25)" strokeWidth="1"/>
+                <path d="M18 10 Q18 4 24 4 L52 4 L62 14 V58 Q62 60 60 60 H20 Q18 60 18 58Z" fill="rgba(16,185,129,0.08)"/>
+                <path d="M52 4 L52 14 L62 14" stroke="rgba(16,185,129,0.35)" strokeWidth="1" fill="none"/>
+                {/* Lines representing text */}
+                <rect x="24" y="20" width="32" height="3" rx="1.5" fill="rgba(16,185,129,0.4)"/>
+                <rect x="24" y="27" width="28" height="2" rx="1" fill="rgba(255,255,255,0.12)"/>
+                <rect x="24" y="32" width="32" height="2" rx="1" fill="rgba(255,255,255,0.12)"/>
+                {/* Mini bar chart inside doc */}
+                <rect x="24" y="38" width="5" height="12" rx="1.5" fill="rgba(16,185,129,0.5)"/>
+                <rect x="32" y="42" width="5" height="8" rx="1.5" fill="rgba(16,185,129,0.35)"/>
+                <rect x="40" y="40" width="5" height="10" rx="1.5" fill="rgba(16,185,129,0.5)"/>
+                <rect x="48" y="36" width="5" height="14" rx="1.5" fill="rgba(16,185,129,0.65)"/>
+                {/* Check badge */}
+                <circle cx="56" cy="52" r="7" fill="rgba(16,185,129,0.3)" stroke="rgba(16,185,129,0.6)" strokeWidth="1"/>
+                <path d="M53 52 L55.5 54.5 L59 50" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
         ),
     },
@@ -60,10 +122,31 @@ const TOOLS = [
         title: "Data Profiler",
         description: "Analyze data quality, detect anomalies and column insights.",
         accent: "#8b5cf6",
-        bg: "rgba(139,92,246,0.1)",
-        icon: (
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75m-7.5 6H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+        bg: "rgba(139,92,246,0.12)",
+        glow: "rgba(139,92,246,0.25)",
+        illustration: (
+            <svg width="80" height="64" viewBox="0 0 80 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Gauge arc */}
+                <path d="M14 44 A26 26 0 0 1 66 44" stroke="rgba(139,92,246,0.2)" strokeWidth="5" strokeLinecap="round" fill="none"/>
+                <path d="M14 44 A26 26 0 0 1 52 20" stroke="url(#gaugeGrad)" strokeWidth="5" strokeLinecap="round" fill="none"/>
+                <defs>
+                    <linearGradient id="gaugeGrad" x1="14" y1="44" x2="52" y2="20" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#10b981"/>
+                        <stop offset="60%" stopColor="#f59e0b"/>
+                        <stop offset="100%" stopColor="#ef4444"/>
+                    </linearGradient>
+                </defs>
+                {/* Needle */}
+                <line x1="40" y1="44" x2="48" y2="22" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="40" cy="44" r="4" fill="#8b5cf6"/>
+                <circle cx="40" cy="44" r="2" fill="white" opacity="0.8"/>
+                {/* Score label */}
+                <text x="40" y="58" fontFamily="sans-serif" fontSize="9" fontWeight="bold" fill="#a78bfa" textAnchor="middle">92%</text>
+                {/* Side dots for anomalies */}
+                <circle cx="8" cy="32" r="3" fill="#ef4444" opacity="0.7"/>
+                <circle cx="72" cy="32" r="3" fill="#10b981" opacity="0.7"/>
+                <circle cx="8" cy="42" r="2" fill="#f59e0b" opacity="0.5"/>
+                <circle cx="72" cy="42" r="2" fill="#10b981" opacity="0.5"/>
             </svg>
         ),
     },
@@ -113,41 +196,99 @@ const BADGES = [
 ];
 
 /* ── ToolCard ─────────────────────────────────────────────── */
-function ToolCard({ href, title, description, accent, bg, icon }: (typeof TOOLS)[number]) {
+function ToolCard({ href, title, description, accent, bg, glow, illustration }: (typeof TOOLS)[number]) {
     const [hovered, setHovered] = React.useState(false);
     return (
-        <Link href={href} style={{ textDecoration: "none" }}>
+        <Link href={href} style={{ textDecoration: "none", display: "block", height: "100%" }}>
             <div
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
                 style={{
+                    position: "relative",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "12px",
+                    height: "200px",
                     padding: "20px",
-                    borderRadius: "14px",
-                    border: hovered ? `1px solid ${accent}40` : "1px solid rgba(255,255,255,0.07)",
-                    background: hovered ? `rgba(255,255,255,0.03)` : "#0d0f1a",
+                    borderRadius: "16px",
+                    border: hovered ? `1px solid ${accent}55` : "1px solid rgba(255,255,255,0.07)",
+                    background: hovered
+                        ? `linear-gradient(145deg, ${bg}, rgba(13,15,26,0.95))`
+                        : "#0d0f1a",
                     cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    transform: hovered ? "translateY(-2px)" : "none",
-                    boxShadow: hovered ? `0 8px 24px ${accent}18` : "none",
+                    transition: "all 0.25s ease",
+                    transform: hovered ? "translateY(-3px)" : "none",
+                    boxShadow: hovered ? `0 12px 32px ${glow}` : "0 2px 8px rgba(0,0,0,0.3)",
+                    overflow: "hidden",
                 }}
             >
+                {/* Glowing top border on hover */}
                 <div style={{
-                    width: "36px", height: "36px", borderRadius: "10px",
-                    background: bg, color: accent,
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    position: "absolute",
+                    top: 0, left: "20%", right: "20%", height: "1px",
+                    background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
+                    opacity: hovered ? 1 : 0,
+                    transition: "opacity 0.25s ease",
+                }} />
+
+                {/* Background illustration — decorative, top-right */}
+                <div style={{
+                    position: "absolute",
+                    top: "8px",
+                    right: "8px",
+                    opacity: hovered ? 0.9 : 0.55,
+                    transition: "opacity 0.25s ease, transform 0.25s ease",
+                    transform: hovered ? "scale(1.06) translateY(-2px)" : "scale(1)",
+                    pointerEvents: "none",
                 }}>
-                    {icon}
+                    {illustration}
                 </div>
-                <div style={{ flex: 1 }}>
-                    <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>{title}</h3>
+
+                {/* Subtle radial glow blob */}
+                <div style={{
+                    position: "absolute",
+                    bottom: "-20px",
+                    right: "-10px",
+                    width: "100px",
+                    height: "100px",
+                    borderRadius: "50%",
+                    background: accent,
+                    opacity: hovered ? 0.07 : 0.03,
+                    filter: "blur(28px)",
+                    transition: "opacity 0.25s ease",
+                    pointerEvents: "none",
+                }} />
+
+                {/* Content — pinned to bottom */}
+                <div style={{ marginTop: "auto", position: "relative", zIndex: 1 }}>
+                    {/* Accent pill */}
+                    <div style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        padding: "3px 9px",
+                        borderRadius: "20px",
+                        background: bg,
+                        marginBottom: "8px",
+                    }}>
+                        <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: accent }} />
+                        <span style={{ fontSize: "9px", fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                            {title}
+                        </span>
+                    </div>
                     <p style={{ fontSize: "11px", color: "#6B7280", lineHeight: 1.55, margin: 0 }}>{description}</p>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <svg width="14" height="14" fill="none" stroke={hovered ? "#fff" : "#374151"} strokeWidth="2" viewBox="0 0 24 24"
-                        style={{ transition: "stroke 0.2s, transform 0.2s", transform: hovered ? "translateX(2px)" : "none" }}>
+
+                {/* Arrow */}
+                <div style={{
+                    position: "absolute",
+                    bottom: "16px",
+                    right: "16px",
+                    zIndex: 1,
+                    opacity: hovered ? 1 : 0.3,
+                    transition: "all 0.2s ease",
+                    transform: hovered ? "translate(1px, -1px)" : "none",
+                }}>
+                    <svg width="14" height="14" fill="none" stroke={accent} strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                     </svg>
                 </div>
@@ -297,7 +438,7 @@ export default function DashboardHome() {
             {/* ── Tool Cards ─────────────────────────────────────── */}
             <div style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                gridTemplateColumns: "repeat(5, 1fr)",
                 gap: "14px",
             }}>
                 {TOOLS.map(t => <ToolCard key={t.href} {...t} />)}
