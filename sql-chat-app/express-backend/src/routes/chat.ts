@@ -5,13 +5,13 @@ import path from 'path';
 import fs from 'fs/promises';
 import { rateLimit, getIdentifier, RATE_LIMITS } from '../lib/rateLimit';
 import { callOpenRouter } from '../lib/openrouter';
-import { getUserDbPool } from '../lib/dbConnection';
+import { executeQuery } from '../lib/dbConnection';
 
 const prisma = new PrismaClient();
 const GRADIO_SPACE = process.env.GRADIO_SPACE || "saadkhi/SQL_chatbot_API";
 const HF_TOKEN = process.env.HF_TOKEN;
 
-// ── System prompt ────────────────────────────────────────────────────────────
+// ── System prompt ─────────────────────────────────────────────────────────────
 // Try the file next to the Next.js app first; fall back to a built-in string so
 // the chat endpoint always has a meaningful persona even in CI / Docker.
 let systemPromptCache: string | null = null;
@@ -40,21 +40,27 @@ async function getSystemPrompt(): Promise<string> {
 }
 
 // ── Schema context ────────────────────────────────────────────────────────────
-// Fetch the user's connected database schema and format it as a compact text
-// block that the LLM can use to write accurate, schema-aware SQL.
+// Fetch the user's connected database schema using the shared executeQuery
+// abstraction so it routes through the same Pool cache and works correctly
+// with Neon serverless connections (which require the pg Pool, not pool.query
+// called on the raw Pool reference returned before a client is checked out).
+// Schema introspection queries are not user-initiated SQL, so we skip audit
+// logging for them (no userId / source passed).  Only the final user query
+// executed via executeQuery in query.ts is logged.
 async function getSchemaContext(encryptedConnString: string): Promise<string> {
     try {
-        const pool = await getUserDbPool(encryptedConnString);
-        const tablesResult = await pool.query(`
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-            ORDER BY table_name
-        `);
+        const tablesResult = await executeQuery(
+            encryptedConnString,
+            `SELECT table_name
+             FROM information_schema.tables
+             WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+             ORDER BY table_name`
+        );
 
         const tables = await Promise.all(
             tablesResult.rows.map(async (row: any) => {
-                const colResult = await pool.query(
+                const colResult = await executeQuery(
+                    encryptedConnString,
                     `SELECT column_name, data_type
                      FROM information_schema.columns
                      WHERE table_name = $1 AND table_schema = 'public'
@@ -90,17 +96,18 @@ async function getGradioClient() {
     }
 }
 
-// ── Chat handler ─────────────────────────────────────────────────────────────
+// ── Chat handler ──────────────────────────────────────────────────────────────
 export async function chatHandler(req: Request, res: Response) {
-    const identifier = getIdentifier(req as unknown as Request);
-    const rateLimitResult = rateLimit(identifier, RATE_LIMITS.chat.limit, RATE_LIMITS.chat.windowMs);
+    // Use userId from auth middleware for accurate per-user rate limiting (task 1.2)
+    const userId = (req as any).userId as string | undefined;
+    const identifier = getIdentifier(req, userId);
+    const rateLimitResult = await rateLimit(identifier, RATE_LIMITS.chat.limit, RATE_LIMITS.chat.windowMs);
 
     if (!rateLimitResult.success) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
     try {
-        const userId = (req as any).userId;
         if (!userId) return res.status(401).json({ error: "Authentication required" });
 
         const { message: userMessage, conversation_id } = req.body;
@@ -112,7 +119,7 @@ export async function chatHandler(req: Request, res: Response) {
             select: { dbConnectionString: true },
         });
 
-        // ── Build schema-aware system prompt ─────────────────────────────
+        // ── Build schema-aware system prompt ──────────────────────────────
         const baseSystemPrompt = await getSystemPrompt();
         let systemPrompt = baseSystemPrompt;
 
@@ -125,7 +132,7 @@ export async function chatHandler(req: Request, res: Response) {
             systemPrompt = `${baseSystemPrompt}\n\nNote: This user has not connected a database yet. You can still explain SQL concepts and help them craft queries, but you cannot run them.`;
         }
 
-        // ── Conversation persistence ──────────────────────────────────────
+        // ── Conversation persistence ───────────────────────────────────────
         let conversation;
         if (conversation_id) {
             conversation = await prisma.conversation.findUnique({
@@ -147,7 +154,6 @@ export async function chatHandler(req: Request, res: Response) {
 
         try {
             const client = await getGradioClient();
-            // Pass the full schema-aware system prompt prepended to the user message
             const fullPrompt = `${systemPrompt}\n\nUser Question: ${userMessage}`;
             const result = await client.predict("/generate_sql", { user_input: fullPrompt });
 
@@ -161,7 +167,7 @@ export async function chatHandler(req: Request, res: Response) {
 
             if (!responseText) throw new Error("Empty response from Gradio");
         } catch (gradioErr) {
-            // ── OpenRouter fallback ──────────────────────────────────────
+            // ── OpenRouter fallback ────────────────────────────────────────
             if (process.env.NODE_ENV !== "production") {
                 console.warn("Gradio failed, falling back to OpenRouter:", (gradioErr as Error).message);
             }
@@ -177,7 +183,7 @@ export async function chatHandler(req: Request, res: Response) {
             }
         }
 
-        // ── Persist assistant reply ───────────────────────────────────────
+        // ── Persist assistant reply ────────────────────────────────────────
         await prisma.message.create({
             data: { conversationId: conversation.id, role: "assistant", content: responseText },
         });

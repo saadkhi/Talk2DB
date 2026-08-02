@@ -18,6 +18,7 @@ model User {
   updatedAt             DateTime       @updatedAt
   conversations         Conversation[]
   savedReports          SavedReport[]
+  auditLogs             AuditLog[]
   accounts              Account[]
   sessions              Session[]
 }
@@ -77,4 +78,27 @@ model SavedReport {
   insights  String[] // array of strings
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+// One row per SQL query executed against a user's connected database.
+// Keeps a record of who ran what, when, and whether it succeeded.
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  /// The SQL that was sent to the database (may be truncated to 4000 chars)
+  sql         String
+  /// Source endpoint: "query" | "chat" | "visualize" | "report" etc.
+  source      String
+  /// Whether the query completed successfully
+  success     Boolean
+  /// Error message if success = false; null otherwise
+  errorMessage String?
+  /// Execution time in milliseconds (null if not measured)
+  durationMs  Int?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

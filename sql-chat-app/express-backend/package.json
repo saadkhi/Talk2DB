@@ -14,6 +14,8 @@
   "dependencies": {
     "@gradio/client": "^2.3.0",
     "@prisma/client": "^6.19.3",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

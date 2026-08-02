@@ -1,11 +1,24 @@
+/**
+ * Prisma client using the @prisma/adapter-pg driver adapter.
+ *
+ * Why: Prisma's native query engine binary (libquery_engine-*.so.node) fails to
+ * connect to Neon on this machine when Node 22 is active. The root cause is that
+ * the Rust engine's DNS resolver picks the IPv6 address returned by the Neon
+ * hostname, but Neon's PostgreSQL port 5432 is IPv4-only. The `pg` Node driver
+ * (used by the adapter) respects Node's own DNS/networking stack which handles
+ * the IPv4/IPv6 fallback correctly.
+ *
+ * The adapter replaces the Rust engine entirely — Prisma's query layer runs
+ * in-process and delegates actual SQL execution to `pg`, which already works.
+ */
+
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 /**
  * Sanitize DATABASE_URL at startup.
- * Handles common formats users paste into Vercel env vars:
- *   - psql 'postgresql://...'   (with psql prefix)
- *   - "postgresql://..."        (with surrounding quotes)
- *   - postgresql://...          (clean — passed through as-is)
+ * Handles common formats users paste into Vercel env vars.
  */
 function getCleanDatabaseUrl(): string {
     const raw = process.env.DATABASE_URL;
@@ -28,9 +41,9 @@ function getCleanDatabaseUrl(): string {
     // Strip wrapping quotes (up to 3 levels deep)
     for (let i = 0; i < 3; i++) {
         if (
-            (url.startsWith("'")  && url.endsWith("'")) ||
-            (url.startsWith('"')  && url.endsWith('"')) ||
-            (url.startsWith("`")  && url.endsWith("`"))
+            (url.startsWith("'") && url.endsWith("'")) ||
+            (url.startsWith('"') && url.endsWith('"')) ||
+            (url.startsWith("`") && url.endsWith("`"))
         ) {
             url = url.slice(1, -1).trim();
         } else {
@@ -38,7 +51,6 @@ function getCleanDatabaseUrl(): string {
         }
     }
 
-    // Validate protocol
     if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) {
         throw new Error(
             `DATABASE_URL has an invalid format. Got: "${url.substring(0, 30)}..."\n` +
@@ -49,21 +61,44 @@ function getCleanDatabaseUrl(): string {
     return url;
 }
 
-const cleanUrl = getCleanDatabaseUrl();
+const connectionString = getCleanDatabaseUrl();
 
-// Update the env var so Prisma's own internal URL resolution also sees the clean value
-if (process.env.DATABASE_URL !== cleanUrl) {
-    process.env.DATABASE_URL = cleanUrl;
+// Keep process.env in sync so other code that reads it directly still works
+if (process.env.DATABASE_URL !== connectionString) {
+    process.env.DATABASE_URL = connectionString;
 }
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+// Singleton pattern — reuse the Pool and PrismaClient across hot-reloads in dev
+const globalForPrisma = globalThis as unknown as {
+    prismaPool: Pool | undefined;
+    prisma: PrismaClient | undefined;
+};
 
-export const prisma =
-    globalForPrisma.prisma ??
-    new PrismaClient({
-        datasourceUrl: cleanUrl,
-    });
+function createPrismaClient(): PrismaClient {
+    const pool =
+        globalForPrisma.prismaPool ??
+        new Pool({
+            connectionString,
+            ssl: { rejectUnauthorized: false },
+            max: 10,
+            idleTimeoutMillis: 30_000,
+            connectionTimeoutMillis: 10_000,
+        });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+    if (!globalForPrisma.prismaPool) {
+        globalForPrisma.prismaPool = pool;
+    }
+
+    const adapter = new PrismaPg(pool);
+
+    return new PrismaClient({ adapter } as any);
+}
+
+export const prisma: PrismaClient =
+    globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = prisma;
+}
 
 export default prisma;

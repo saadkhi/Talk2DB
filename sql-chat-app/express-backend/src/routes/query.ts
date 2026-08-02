@@ -2,33 +2,52 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { generateSQL } from '../lib/sqlModel';
 import { callOpenRouter } from '../lib/openrouter';
-import { executeQuery, getUserDbPool } from '../lib/dbConnection';
+import { executeQuery } from '../lib/dbConnection';
 import { isSQLSafe, extractSQL } from '../lib/sqlSafety';
 import { formatDatabaseError } from '../lib/errorFormatter';
 import { rateLimit, getIdentifier, RATE_LIMITS } from '../lib/rateLimit';
 
 const prisma = new PrismaClient();
 
-async function getSchema(dbUrl: string) {
-    const pool = await getUserDbPool(dbUrl);
-    const tablesResult = await pool.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`);
-    const tables = await Promise.all(tablesResult.rows.map(async (row: any) => {
-        const colResult = await pool.query(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public' ORDER BY ordinal_position`, [row.table_name]);
-        return { name: row.table_name, columns: colResult.rows.map((c: any) => ({ name: c.column_name, type: c.data_type })) };
-    }));
+// Use executeQuery (via the shared pool cache) for schema introspection as well
+// so all DB access goes through the same code path and benefits from TTL eviction.
+async function getSchema(encryptedDbUrl: string) {
+    const tablesResult = await executeQuery(
+        encryptedDbUrl,
+        `SELECT table_name
+         FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+         ORDER BY table_name`
+    );
+    const tables = await Promise.all(
+        tablesResult.rows.map(async (row: any) => {
+            const colResult = await executeQuery(
+                encryptedDbUrl,
+                `SELECT column_name, data_type
+                 FROM information_schema.columns
+                 WHERE table_name = $1 AND table_schema = 'public'
+                 ORDER BY ordinal_position`,
+                [row.table_name]
+            );
+            return {
+                name: row.table_name,
+                columns: colResult.rows.map((c: any) => ({ name: c.column_name, type: c.data_type })),
+            };
+        })
+    );
     return { tables };
 }
 
 export async function queryHandler(req: Request, res: Response) {
-    const identifier = getIdentifier(req as unknown as Request);
-    const rateLimitResult = rateLimit(identifier, RATE_LIMITS.query.limit, RATE_LIMITS.query.windowMs);
+    const userId = (req as any).userId as string | undefined;
+    const identifier = getIdentifier(req as unknown as Request, userId);
+    const rateLimitResult = await rateLimit(identifier, RATE_LIMITS.query.limit, RATE_LIMITS.query.windowMs);
 
     if (!rateLimitResult.success) {
         return res.status(429).json({ error: "Rate limit exceeded" });
     }
 
     try {
-        const userId = (req as any).userId;
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         const { prompt } = req.body;
@@ -42,7 +61,11 @@ export async function queryHandler(req: Request, res: Response) {
         let schemaContext = "";
         try {
             const schema = await getSchema(user.dbConnectionString);
-            schemaContext = schema.tables.map((t: any) => `Table: ${t.name}\nColumns: ${t.columns.map((c: any) => `${c.name} (${c.type})`).join(", ")}`).join("\n\n");
+            schemaContext = schema.tables
+                .map((t: any) =>
+                    `Table: ${t.name}\nColumns: ${t.columns.map((c: any) => `${c.name} (${c.type})`).join(", ")}`
+                )
+                .join("\n\n");
         } catch (e) {
             console.warn("Could not load schema context");
         }
@@ -72,7 +95,13 @@ export async function queryHandler(req: Request, res: Response) {
         const safeSql = /\bLIMIT\b/i.test(sql) ? sql : `${sql} LIMIT 500`;
 
         try {
-            const { columns, rows } = await executeQuery(user.dbConnectionString, safeSql);
+            // Pass userId + source so executeQuery writes an AuditLog row (task 1.6)
+            const { columns, rows } = await executeQuery(
+                user.dbConnectionString,
+                safeSql,
+                undefined,
+                { userId, source: "query" }
+            );
             return res.json({ sql: safeSql, columns, rows });
         } catch (dbError: any) {
             return res.status(422).json({ error: dbError.message, sql: safeSql });

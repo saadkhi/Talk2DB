@@ -12,10 +12,10 @@ const app = express();
 const port = process.env.PORT || 8000;
 const prisma = new PrismaClient();
 
-// FIX: replace wildcard origin reflection with an explicit allowlist.
+// ── CORS allowlist ─────────────────────────────────────────────────────────────
 // origin:true reflects every caller's origin with credentials=true, which is
 // equivalent to Access-Control-Allow-Origin: * with credentials — any site
-// could make authenticated requests to this server.
+// could make authenticated requests to this server.  We use an explicit list.
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
     .split(",")
     .map((o) => o.trim())
@@ -34,14 +34,57 @@ app.use(
         credentials: true,
     })
 );
+
 app.use(express.json());
 
-// Auth middleware reading NextAuth session tokens
-async function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+// ── CSRF — Origin / Referer check for all state-mutating routes (task 1.5) ───
+//
+// This middleware runs after CORS so browsers have already been refused via
+// preflight for cross-origin origins.  The Origin check here is a defence-in-
+// depth guard that also catches non-browser clients that skip CORS (e.g. curl
+// sent with a forged Cookie) as long as they send an Origin header.
+//
+// Strategy:
+//  1. If the request has no Origin header, check Referer instead.
+//  2. If neither header is present (same-origin server-to-server call from the
+//     Next.js backend) we let the request through — it has no cookie to steal.
+//  3. Any Origin / Referer that doesn't match the allowlist is rejected 403.
+//
+function csrfCheck(
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+): void {
+    const origin = req.headers["origin"] as string | undefined;
+    const referer = req.headers["referer"] as string | undefined;
+
+    // Determine the effective source
+    const source = origin ?? (referer ? new URL(referer).origin : null);
+
+    if (!source) {
+        // No browser origin headers — allow (server-to-server)
+        next();
+        return;
+    }
+
+    if (ALLOWED_ORIGINS.includes(source)) {
+        next();
+        return;
+    }
+
+    res.status(403).json({ error: "Forbidden: cross-site request rejected" });
+}
+
+// ── Auth middleware ────────────────────────────────────────────────────────────
+async function authMiddleware(
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+): Promise<void> {
     try {
         const token = await getToken({
             req: req as any,
-            secret: process.env.NEXTAUTH_SECRET
+            secret: process.env.NEXTAUTH_SECRET,
         });
         if (token && token.id) {
             (req as any).userId = token.id;
@@ -56,11 +99,13 @@ async function authMiddleware(req: express.Request, res: express.Response, next:
     }
 }
 
+// ── Routes ────────────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Heavies
-app.post('/api/query', authMiddleware, queryHandler);
-app.post('/api/chat', authMiddleware, chatHandler);
+// csrfCheck runs before authMiddleware so malformed cross-site requests are
+// rejected before we spend cycles verifying JWT tokens.
+app.post('/api/query', csrfCheck, authMiddleware, queryHandler);
+app.post('/api/chat',  csrfCheck, authMiddleware, chatHandler);
 
 app.listen(port, () => {
     console.log(`Backend server running on port ${port}`);
