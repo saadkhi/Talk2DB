@@ -97,7 +97,9 @@ function createPrismaClient(): PrismaClient {
 export const prisma: PrismaClient =
     globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
+// Cache the singleton in all environments — on Vercel (production) this prevents
+// a new Pool being created per serverless function invocation.
+if (!globalForPrisma.prisma) {
     globalForPrisma.prisma = prisma;
 }
 
