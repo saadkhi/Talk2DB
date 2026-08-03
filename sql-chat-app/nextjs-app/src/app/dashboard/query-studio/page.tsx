@@ -7,6 +7,18 @@ import SQLEditor from "@/components/SQLEditor";
 interface ColInfo { name: string; type: string; nullable: boolean; isPrimary: boolean; }
 interface TableInfo { name: string; rowCount: number; columns: ColInfo[]; }
 
+interface ColumnHint {
+    column: string;
+    queriedValue: string;
+    actualValues: string[];
+    suggestions: string[];
+}
+interface QueryGuardrail {
+    type: "no_results" | "value_mismatch" | "column_not_found";
+    message: string;
+    hints: ColumnHint[];
+}
+
 /* ── Tiny helpers ────────────────────────────────────────────────────────── */
 function Spinner({ size = 14, color = "#fff" }: { size?: number; color?: string }) {
     return (
@@ -54,6 +66,7 @@ export default function QueryStudioPage() {
     const [rows, setRows]               = useState<any[]>([]);
     const [rowError, setRowError]       = useState<string | null>(null);
     const [hasResult, setHasResult]     = useState(false);
+    const [guardrail, setGuardrail]     = useState<QueryGuardrail | null>(null);
 
     const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -85,6 +98,7 @@ export default function QueryStudioPage() {
         setGeneratedSql(sql);
         setGenError(null);
         setPrompt("");
+        setGuardrail(null);
 
         // auto-run
         setRunning(true);
@@ -100,6 +114,7 @@ export default function QueryStudioPage() {
             if (!res.ok) throw new Error(data.error || "Execution failed");
             setColumns(data.columns ?? []);
             setRows(data.rows ?? []);
+            setGuardrail(data.guardrail ?? null);
             setHasResult(true);
         } catch (e: any) {
             setRowError(e.message);
@@ -117,7 +132,7 @@ export default function QueryStudioPage() {
         setGenError(null);
         setGeneratedSql("");
         setColumns([]); setRows([]);
-        setHasResult(false); setRowError(null);
+        setHasResult(false); setRowError(null); setGuardrail(null);
         setSelectedTable(null);
         try {
             const res  = await fetch("/api/query", {
@@ -137,12 +152,12 @@ export default function QueryStudioPage() {
     };
 
     /* ── run current SQL manually ─────────────────────────────────────────── */
-    const runSQL = async () => {
-        const sql = editedSql.trim();
+    const runSQL = async (sqlOverride?: string) => {
+        const sql = (sqlOverride ?? editedSql).trim();
         if (!sql) return;
         setRunning(true);
         setRowError(null); setColumns([]); setRows([]);
-        setHasResult(false);
+        setHasResult(false); setGuardrail(null);
         try {
             const res  = await fetch("/api/query/run", {
                 method: "POST",
@@ -153,6 +168,7 @@ export default function QueryStudioPage() {
             if (!res.ok) throw new Error(data.error || "Execution failed");
             setColumns(data.columns ?? []);
             setRows(data.rows ?? []);
+            setGuardrail(data.guardrail ?? null);
             setHasResult(true);
         } catch (e: any) {
             setRowError(e.message);
@@ -160,6 +176,15 @@ export default function QueryStudioPage() {
         } finally {
             setRunning(false);
         }
+    };
+
+    /** Replace a bad value in the SQL with a suggested one and re-run */
+    const applySuggestion = (hint: ColumnHint, suggestion: string) => {
+        // Replace ALL occurrences of the bad value (case-insensitive) in the SQL
+        const escaped = hint.queriedValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const newSql = editedSql.replace(new RegExp(`'${escaped}'`, "gi"), `'${suggestion}'`);
+        setEditedSql(newSql);
+        runSQL(newSql);
     };
 
     const handleCopy = () => {
@@ -468,7 +493,7 @@ export default function QueryStudioPage() {
 
                             {/* Run button */}
                             <button
-                                onClick={runSQL}
+                                onClick={() => runSQL()}
                                 disabled={running || !editedSql.trim()}
                                 style={{
                                     width: "100%", padding: "12px", borderRadius: "10px",
@@ -542,12 +567,178 @@ export default function QueryStudioPage() {
 
                                     {/* Data */}
                                     <div style={{ padding: "16px 18px" }}>
-                                        {rows.length === 0
-                                            ? <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
-                                                Query executed successfully — no rows returned.
-                                              </p>
-                                            : <DataTable columns={columns} rows={rows} pageSize={25} />
-                                        }
+                                        {rows.length === 0 ? (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                                {/* Plain "no rows" message */}
+                                                <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
+                                                    Query executed successfully — no rows returned.
+                                                </p>
+
+                                                {/* Guardrail hint banner */}
+                                                {guardrail && guardrail.hints.length > 0 && (
+                                                    <div style={{
+                                                        background: "rgba(251,191,36,0.05)",
+                                                        border: "1px solid rgba(251,191,36,0.25)",
+                                                        borderRadius: "12px",
+                                                        padding: "16px 18px",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        gap: "14px",
+                                                    }}>
+                                                        {/* Banner header */}
+                                                        <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                                                            <div style={{
+                                                                width: "28px", height: "28px", borderRadius: "8px",
+                                                                background: "rgba(251,191,36,0.15)",
+                                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                                                flexShrink: 0,
+                                                            }}>
+                                                                <svg width="14" height="14" fill="none" stroke="#fbbf24" strokeWidth="2.5" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                                                </svg>
+                                                            </div>
+                                                            <div>
+                                                                <p style={{ fontSize: "13px", fontWeight: 700, color: "#fbbf24", margin: "0 0 4px" }}>
+                                                                    No matching data found — here's why
+                                                                </p>
+                                                                <p style={{ fontSize: "12px", color: "#D1D5DB", margin: 0, lineHeight: 1.55 }}>
+                                                                    Your query ran successfully but returned 0 rows. The filter values below don't match
+                                                                    anything in the database. Try one of the suggested corrections.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Per-column hints */}
+                                                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                                            {guardrail.hints.map((hint) => (
+                                                                <div key={hint.column} style={{
+                                                                    background: "rgba(0,0,0,0.25)",
+                                                                    borderRadius: "10px",
+                                                                    padding: "12px 14px",
+                                                                    display: "flex",
+                                                                    flexDirection: "column",
+                                                                    gap: "10px",
+                                                                }}>
+                                                                    {/* Column + queried value */}
+                                                                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                                                        <code style={{
+                                                                            fontSize: "11px", fontFamily: "monospace",
+                                                                            background: "rgba(99,102,241,0.15)",
+                                                                            color: "#a5b4fc", padding: "2px 8px",
+                                                                            borderRadius: "5px",
+                                                                        }}>{hint.column}</code>
+                                                                        <span style={{ fontSize: "12px", color: "#9CA3AF" }}>was filtered by</span>
+                                                                        <code style={{
+                                                                            fontSize: "11px", fontFamily: "monospace",
+                                                                            background: "rgba(239,68,68,0.12)",
+                                                                            color: "#fca5a5", padding: "2px 8px",
+                                                                            borderRadius: "5px",
+                                                                            textDecoration: "line-through",
+                                                                        }}>'{hint.queriedValue}'</code>
+                                                                        <span style={{ fontSize: "11px", color: "#6B7280" }}>— not found in database</span>
+                                                                    </div>
+
+                                                                    {/* Suggestions */}
+                                                                    {hint.suggestions.length > 0 && (
+                                                                        <div>
+                                                                            <p style={{ fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 6px" }}>
+                                                                                Did you mean?
+                                                                            </p>
+                                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                                                                {hint.suggestions.map(s => (
+                                                                                    <button
+                                                                                        key={s}
+                                                                                        onClick={() => applySuggestion(hint, s)}
+                                                                                        disabled={running}
+                                                                                        style={{
+                                                                                            padding: "4px 12px", borderRadius: "20px",
+                                                                                            fontSize: "12px", fontWeight: 600,
+                                                                                            background: "rgba(16,185,129,0.12)",
+                                                                                            border: "1px solid rgba(16,185,129,0.3)",
+                                                                                            color: "#34d399", cursor: "pointer",
+                                                                                            fontFamily: "monospace",
+                                                                                            transition: "all 0.15s",
+                                                                                        }}
+                                                                                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,0.22)"}
+                                                                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,0.12)"}
+                                                                                    >
+                                                                                        ✓ Use '{s}'
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Actual values sample */}
+                                                                    {hint.actualValues.length > 0 && (
+                                                                        <div>
+                                                                            <p style={{ fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 6px" }}>
+                                                                                Actual values in <code style={{ fontFamily: "monospace", textTransform: "none" }}>{hint.column}</code>
+                                                                            </p>
+                                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                                                                                {hint.actualValues.map(v => (
+                                                                                    <button
+                                                                                        key={v}
+                                                                                        onClick={() => applySuggestion(hint, v)}
+                                                                                        disabled={running}
+                                                                                        style={{
+                                                                                            padding: "3px 10px", borderRadius: "20px",
+                                                                                            fontSize: "11px", fontWeight: 500,
+                                                                                            background: "rgba(255,255,255,0.04)",
+                                                                                            border: "1px solid rgba(255,255,255,0.08)",
+                                                                                            color: "#9CA3AF", cursor: "pointer",
+                                                                                            fontFamily: "monospace",
+                                                                                            transition: "all 0.15s",
+                                                                                        }}
+                                                                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(99,102,241,0.4)"; (e.currentTarget as HTMLElement).style.color = "#c7d2fe"; }}
+                                                                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "#9CA3AF"; }}
+                                                                                    >
+                                                                                        {v}
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* No match, no suggestions */}
+                                                                    {hint.suggestions.length === 0 && hint.actualValues.length === 0 && (
+                                                                        <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>
+                                                                            The column <code style={{ fontFamily: "monospace", color: "#a5b4fc" }}>{hint.column}</code> appears to have no data or the value type doesn't support text comparison.
+                                                                            Please clarify your query.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Clarification prompt */}
+                                                        <p style={{ fontSize: "11px", color: "#6B7280", margin: 0, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "10px" }}>
+                                                            💡 Click any value above to instantly retry the query with that correction, or update your prompt to match actual data.
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {/* No guardrail but 0 rows — generic clarification */}
+                                                {!guardrail && (
+                                                    <div style={{
+                                                        background: "rgba(99,102,241,0.05)",
+                                                        border: "1px solid rgba(99,102,241,0.15)",
+                                                        borderRadius: "10px",
+                                                        padding: "12px 14px",
+                                                        display: "flex", alignItems: "flex-start", gap: "8px",
+                                                    }}>
+                                                        <svg width="14" height="14" fill="none" stroke="#818cf8" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: "1px" }}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                                                        </svg>
+                                                        <p style={{ fontSize: "12px", color: "#818cf8", margin: 0, lineHeight: 1.55 }}>
+                                                            The query is valid but matched no rows. Try browsing the table first to see what values exist, then refine your prompt.
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <DataTable columns={columns} rows={rows} pageSize={25} />
+                                        )}
                                     </div>
                                 </div>
                             )}
