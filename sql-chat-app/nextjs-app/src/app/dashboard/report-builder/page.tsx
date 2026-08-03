@@ -2,37 +2,22 @@
 import React, { useState } from "react";
 import ChartRenderer from "@/components/data/ChartRenderer";
 import DataTable from "@/components/data/DataTable";
-
-interface ReportData {
-    sql: string;
-    columns: string[];
-    rows: any[];
-    chartConfig: {
-        chartType: "bar" | "line" | "pie" | "area" | "scatter";
-        xKey: string;
-        yKeys: string[];
-        title: string;
-    };
-}
-
-interface Narrative {
-    title: string;
-    summary: string;
-    insights: string[];
-    recommendations: string[];
-}
+import { usePageState } from "@/context/PageStateContext";
 
 export default function ReportBuilderPage() {
-    const [prompt, setPrompt] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [narrativeLoading, setNarrativeLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [savedId, setSavedId] = useState<string | null>(null);
+    const { reportBuilder: s, setReportBuilder: set } = usePageState();
+    const { prompt, reportData, narrative, savedId, error } = s;
+    const setPrompt     = (v: string)              => set({ prompt: v });
+    const setReportData = (v: typeof reportData)   => set({ reportData: v });
+    const setNarrative  = (v: typeof narrative)    => set({ narrative: v });
+    const setSavedId    = (v: string | null)        => set({ savedId: v });
+    const setError      = (v: string | null)        => set({ error: v });
 
-    const [reportData, setReportData] = useState<ReportData | null>(null);
-    const [narrative, setNarrative] = useState<Narrative | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    // transient loading flags
+    const [loading, setLoading]                   = useState(false);
+    const [narrativeLoading, setNarrativeLoading] = useState(false);
+    const [saving, setSaving]                     = useState(false);
+    const [saveError, setSaveError]               = useState<string | null>(null);
 
     const handleBuildReport = async (e: React.FormEvent) => {
         e.preventDefault();

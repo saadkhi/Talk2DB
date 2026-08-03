@@ -1,14 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-
-/* ── Types ─────────────────────────────────────────────────── */
-interface ColInfo { name: string; type: string; nullable: boolean; isPrimary: boolean; }
-interface TableInfo { name: string; rowCount: number; columns: ColInfo[]; }
-
-interface TableData {
-    table: string; totalRows: number; page: number; limit: number;
-    totalPages: number; columns: string[]; rows: any[];
-}
+import { usePageState } from "@/context/PageStateContext";
+import type { TableInfo, TableData } from "@/context/PageStateContext";
 
 /* ── Shared styles ─────────────────────────────────────────── */
 const card: React.CSSProperties = {
@@ -46,31 +39,45 @@ function exportJSON(rows: any[], name: string) {
 
 /* ── Main page ─────────────────────────────────────────────── */
 export default function DatabaseBrowserPage() {
-    const [tables, setTables] = useState<TableInfo[]>([]);
-    const [loadingSchema, setLoadingSchema] = useState(true);
-    const [schemaErr, setSchemaErr] = useState<string | null>(null);
-    const [search, setSearch] = useState("");
+    const { databaseBrowser: s, setDatabaseBrowser: set } = usePageState();
+    const {
+        tables, loaded, search, selectedTable,
+        tableData, page, pageSize, activeTab, dataErr,
+    } = s;
 
-    const [selectedTable, setSelectedTable] = useState<TableInfo | null>(null);
-    const [tableData, setTableData] = useState<TableData | null>(null);
-    const [loadingData, setLoadingData] = useState(false);
-    const [dataErr, setDataErr] = useState<string | null>(null);
-    const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(50);
-    const [activeTab, setActiveTab] = useState<"data" | "structure">("data");
+    const setTables        = (v: TableInfo[])          => set({ tables: v });
+    const setSearch        = (v: string)               => set({ search: v });
+    const setSelectedTable = (v: TableInfo | null)     => set({ selectedTable: v });
+    const setTableData     = (v: TableData | null)     => set({ tableData: v });
+    const setPage          = (v: number)               => set({ page: v });
+    const setPageSize      = (v: number)               => set({ pageSize: v });
+    const setActiveTab     = (v: "data" | "structure") => set({ activeTab: v });
+    const setDataErr       = (v: string | null)        => set({ dataErr: v });
 
-    /* Load schema on mount */
+    // transient flags — never need to persist mid-flight loading state
+    const [loadingSchema, setLoadingSchema] = useState(!loaded);
+    const [schemaErr, setSchemaErr]         = useState<string | null>(null);
+    const [loadingData, setLoadingData]     = useState(false);
+
+    /* Load schema on mount — skip if already cached */
     useEffect(() => {
+        if (loaded) return;
         fetch("/api/schema").then(r => r.json()).then(d => {
             if (d.error) throw new Error(d.error);
-            setTables(d.tables || []);
-            if (d.tables?.length) selectTable(d.tables[0], 0, 50);
+            const t = d.tables || [];
+            setTables(t);
+            set({ loaded: true });
+            if (t.length && !selectedTable) selectTable(t[0], 0, pageSize);
         }).catch(e => setSchemaErr(e.message)).finally(() => setLoadingSchema(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const selectTable = useCallback(async (t: TableInfo, pg: number, limit: number) => {
-        setSelectedTable(t); setPage(pg); setDataErr(null); setActiveTab("data"); setLoadingData(true);
+        setSelectedTable(t);
+        setPage(pg);
+        setDataErr(null);
+        setActiveTab("data");
+        setLoadingData(true);
         try {
             const r = await fetch(`/api/database/table-data?table=${encodeURIComponent(t.name)}&page=${pg}&limit=${limit}`);
             const d = await r.json();
@@ -78,6 +85,7 @@ export default function DatabaseBrowserPage() {
             setTableData(d);
         } catch (e: any) { setDataErr(e.message); setTableData(null); }
         finally { setLoadingData(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const loadPage = (pg: number) => { if (selectedTable) selectTable(selectedTable, pg, pageSize); };

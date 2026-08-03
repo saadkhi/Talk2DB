@@ -1,26 +1,24 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-
-interface ColProfile {
-    name: string; type: string; nullCount: number; nullPct: number;
-    distinctCount: number; anomalies: string[];
-    min?: number | null; max?: number | null; avg?: number | null;
-    min_date?: string; max_date?: string;
-    topValues?: { value: string; count: number }[];
-}
-interface TableProfile { tableName: string; totalRows: number; columns: ColProfile[]; }
+import { usePageState } from "@/context/PageStateContext";
+import type { TableProfile } from "@/context/PageStateContext";
 
 const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
 const S = { label: { fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" } };
 
 export default function DataProfilerPage() {
-    const [tables, setTables] = useState<string[]>([]);
-    const [selected, setSelected] = useState("");
-    const [loadingTables, setLoadingTables] = useState(true);
-    const [profiling, setProfiling] = useState(false);
-    const [profile, setProfile] = useState<TableProfile | null>(null);
-    const [headerErr, setHeaderErr] = useState<string | null>(null);
-    const [profileErr, setProfileErr] = useState<string | null>(null);
+    const { dataProfiler: s, setDataProfiler: set } = usePageState();
+    const { tables, selected, loaded, profile, headerErr, profileErr } = s;
+
+    const setTables     = (v: string[])              => set({ tables: v });
+    const setSelected   = (v: string)                => set({ selected: v });
+    const setProfile    = (v: TableProfile | null)   => set({ profile: v });
+    const setHeaderErr  = (v: string | null)         => set({ headerErr: v });
+    const setProfileErr = (v: string | null)         => set({ profileErr: v });
+
+    // transient loading flags
+    const [loadingTables, setLoadingTables] = useState(!loaded);
+    const [profiling, setProfiling]         = useState(false);
 
     const runProfile = useCallback(async (table: string) => {
         if (!table) return;
@@ -35,15 +33,23 @@ export default function DataProfilerPage() {
             setProfile(data);
         } catch (e: any) { setProfileErr(e.message); }
         finally { setProfiling(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
+        if (loaded) return; // tables list already fetched — skip re-fetch
         fetch("/api/schema").then(r => r.json()).then(data => {
             const names = (data.tables || []).map((t: any) => t.name);
             setTables(names);
-            if (names.length) { setSelected(names[0]); runProfile(names[0]); }
+            set({ loaded: true });
+            // Only auto-profile on first visit; don't overwrite an existing result
+            if (names.length && !profile) {
+                setSelected(names[0]);
+                runProfile(names[0]);
+            }
         }).catch(e => setHeaderErr(e.message)).finally(() => setLoadingTables(false));
-    }, [runProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1100px", margin: "0 auto", width: "100%" }}>

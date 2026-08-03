@@ -1,24 +1,31 @@
 "use client";
 import React, { useState, useEffect } from "react";
-
-interface ColumnInfo { name: string; type: string; nullable: boolean; isPrimary: boolean; }
-interface TableInfo { name: string; rowCount: number; columns: ColumnInfo[]; }
+import { usePageState } from "@/context/PageStateContext";
+import type { TableInfo } from "@/context/PageStateContext";
 
 const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
 
 export default function SchemaExplorerPage() {
-    const [tables, setTables] = useState<TableInfo[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [selected, setSelected] = useState<TableInfo | null>(null);
-    const [search, setSearch] = useState("");
+    const { schemaExplorer: s, setSchemaExplorer: set } = usePageState();
+    const { tables, selected, search, loaded, error } = s;
+    const setTables   = (v: typeof tables)   => set({ tables: v });
+    const setSelected = (v: TableInfo | null)=> set({ selected: v });
+    const setSearch   = (v: string)          => set({ search: v });
+    const setError    = (v: string | null)   => set({ error: v });
+
+    // loading is transient
+    const [loading, setLoading] = useState(!loaded);
 
     useEffect(() => {
+        if (loaded) return; // already have schema — skip re-fetch
         fetch("/api/schema").then(r => r.json()).then(data => {
             if (data.error) throw new Error(data.error);
-            setTables(data.tables || []);
-            if (data.tables?.length) setSelected(data.tables[0]);
+            const t = data.tables || [];
+            setTables(t);
+            if (t.length) setSelected(t[0]);
+            set({ loaded: true });
         }).catch(e => setError(e.message)).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const filtered = tables.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));

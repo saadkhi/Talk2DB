@@ -33,6 +33,19 @@ export default function ChartRenderer({ chartType, data, xKey, yKeys, title }: C
         );
     }
 
+    // Coerce numeric-string values to numbers so Recharts renders bars/slices correctly.
+    // pg driver returns COUNT(*), SUM() etc. as strings.
+    const safeData = data.map(row => {
+        const patched: any = { ...row };
+        for (const key of yKeys) {
+            const v = patched[key];
+            if (v !== null && v !== undefined && !isNaN(Number(v))) {
+                patched[key] = Number(v);
+            }
+        }
+        return patched;
+    });
+
     const axisProps = {
         stroke: "#374151",
         tick: { fill: "#9CA3AF", fontSize: 11 },
@@ -55,14 +68,16 @@ export default function ChartRenderer({ chartType, data, xKey, yKeys, title }: C
                 <ResponsiveContainer width="100%" height={320}>
                     {chartType === "pie" ? (
                         <PieChart>
-                            <Pie data={data} dataKey={yKeys[0]} nameKey={xKey}
+                            <Pie data={safeData} dataKey={yKeys[0]} nameKey={xKey}
                                 cx="50%" cy="50%" outerRadius={110}
                                 label={({ name, percent }: { name?: string; percent?: number }) =>
-                                    `${name ?? ""} (${(( percent ?? 0) * 100).toFixed(0)}%)`
+                                    (percent ?? 0) > 0.03
+                                        ? `${name ?? ""} (${((percent ?? 0) * 100).toFixed(0)}%)`
+                                        : ""
                                 }
                                 labelLine={{ stroke: "#374151" }}
                             >
-                                {data.map((_, i) => (
+                                {safeData.map((_, i) => (
                                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                 ))}
                             </Pie>
@@ -70,7 +85,7 @@ export default function ChartRenderer({ chartType, data, xKey, yKeys, title }: C
                             <Legend {...legendProps} />
                         </PieChart>
                     ) : chartType === "line" ? (
-                        <LineChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                        <LineChart data={safeData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                             <CartesianGrid {...gridProps} />
                             <XAxis dataKey={xKey} {...axisProps} />
                             <YAxis {...axisProps} />
@@ -85,7 +100,7 @@ export default function ChartRenderer({ chartType, data, xKey, yKeys, title }: C
                             ))}
                         </LineChart>
                     ) : chartType === "area" ? (
-                        <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                        <AreaChart data={safeData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                             <CartesianGrid {...gridProps} />
                             <XAxis dataKey={xKey} {...axisProps} />
                             <YAxis {...axisProps} />
@@ -101,7 +116,7 @@ export default function ChartRenderer({ chartType, data, xKey, yKeys, title }: C
                         </AreaChart>
                     ) : (
                         /* default: bar */
-                        <BarChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                        <BarChart data={safeData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                             <CartesianGrid {...gridProps} />
                             <XAxis dataKey={xKey} {...axisProps} />
                             <YAxis {...axisProps} />

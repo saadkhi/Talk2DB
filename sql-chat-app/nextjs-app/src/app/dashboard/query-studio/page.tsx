@@ -1,23 +1,9 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 import DataTable from "@/components/data/DataTable";
 import SQLEditor from "@/components/SQLEditor";
-
-/* ── Types ───────────────────────────────────────────────────────────────── */
-interface ColInfo { name: string; type: string; nullable: boolean; isPrimary: boolean; }
-interface TableInfo { name: string; rowCount: number; columns: ColInfo[]; }
-
-interface ColumnHint {
-    column: string;
-    queriedValue: string;
-    actualValues: string[];
-    suggestions: string[];
-}
-interface QueryGuardrail {
-    type: "no_results" | "value_mismatch" | "column_not_found";
-    message: string;
-    hints: ColumnHint[];
-}
+import { usePageState } from "@/context/PageStateContext";
+import type { TableInfo, ColumnHint, QueryGuardrail } from "@/context/PageStateContext";
 
 /* ── Tiny helpers ────────────────────────────────────────────────────────── */
 function Spinner({ size = 14, color = "#fff" }: { size?: number; color?: string }) {
@@ -44,31 +30,39 @@ const labelStyle: React.CSSProperties = {
 
 /* ── Main page ────────────────────────────────────────────────────────────── */
 export default function QueryStudioPage() {
+    const { queryStudio: s, setQueryStudio: set } = usePageState();
 
-    /* ── schema / table list ── */
-    const [tables, setTables]           = useState<TableInfo[]>([]);
-    const [loadingSchema, setLoadingSchema] = useState(true);
-    const [schemaError, setSchemaError] = useState<string | null>(null);
-    const [tableSearch, setTableSearch] = useState("");
-    const [selectedTable, setSelectedTable] = useState<TableInfo | null>(null);
+    // Destructure for readability — these are all live references to context state
+    const {
+        tables, loadingSchema, schemaError, tableSearch, selectedTable,
+        prompt, generatedSql, editedSql,
+        columns, rows, hasResult, rowError, genError, guardrail,
+    } = s;
 
-    /* ── prompt / SQL ── */
-    const [prompt, setPrompt]           = useState("");
-    const [generatedSql, setGeneratedSql] = useState("");
-    const [editedSql, setEditedSql]     = useState("");
-    const [generating, setGenerating]   = useState(false);
-    const [genError, setGenError]       = useState<string | null>(null);
-    const [copied, setCopied]           = useState(false);
-
-    /* ── query results ── */
-    const [running, setRunning]         = useState(false);
-    const [columns, setColumns]         = useState<string[]>([]);
-    const [rows, setRows]               = useState<any[]>([]);
-    const [rowError, setRowError]       = useState<string | null>(null);
-    const [hasResult, setHasResult]     = useState(false);
-    const [guardrail, setGuardrail]     = useState<QueryGuardrail | null>(null);
+    // Aliases that mirror the original setState calls so the rest of the file
+    // needs minimal changes: set({ key: value }) instead of setState(value)
+    const setTables         = (v: TableInfo[])          => set({ tables: v });
+    const setLoadingSchema  = (v: boolean)              => set({ loadingSchema: v });
+    const setSchemaError    = (v: string | null)        => set({ schemaError: v });
+    const setTableSearch    = (v: string)               => set({ tableSearch: v });
+    const setSelectedTable  = (v: TableInfo | null)     => set({ selectedTable: v });
+    const setPrompt         = (v: string)               => set({ prompt: v });
+    const setGeneratedSql   = (v: string)               => set({ generatedSql: v });
+    const setEditedSql      = (v: string)               => set({ editedSql: v });
+    const setColumns        = (v: string[])             => set({ columns: v });
+    const setRows           = (v: any[])                => set({ rows: v });
+    const setHasResult      = (v: boolean)              => set({ hasResult: v });
+    const setRowError       = (v: string | null)        => set({ rowError: v });
+    const setGenError       = (v: string | null)        => set({ genError: v });
+    const setGuardrail      = (v: QueryGuardrail | null)=> set({ guardrail: v });
+    // copied state lives locally — it's purely ephemeral UI feedback
+    const [copied, setCopied] = React.useState(false);
 
     const resultsRef = useRef<HTMLDivElement>(null);
+
+    // Transient loading flags — fine as local state (no need to persist mid-flight)
+    const [generating, setGenerating] = React.useState(false);
+    const [running, setRunning]       = React.useState(false);
 
     /* keep edit box in sync when AI generates new SQL */
     useEffect(() => { setEditedSql(generatedSql); }, [generatedSql]);
@@ -78,8 +72,9 @@ export default function QueryStudioPage() {
         if (hasResult) resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, [hasResult]);
 
-    /* ── load schema on mount ────────────────────────────────────────────── */
+    /* ── load schema on mount — skip if already loaded ──────────────────── */
     useEffect(() => {
+        if (!loadingSchema && tables.length > 0) return; // already have data
         fetch("/api/schema")
             .then(r => r.json())
             .then(d => {
@@ -88,6 +83,7 @@ export default function QueryStudioPage() {
             })
             .catch(e => setSchemaError(e.message))
             .finally(() => setLoadingSchema(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     /* ── click a table: fill SQL editor + run it ─────────────────────────── */

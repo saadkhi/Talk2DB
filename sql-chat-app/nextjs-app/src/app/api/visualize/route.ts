@@ -122,7 +122,18 @@ export async function POST(req: Request) {
                 yKeys: finalYKeys,
                 title: chartConfig.title || prompt,
                 columns,
-                data: rows,
+                // Coerce numeric string columns to actual numbers so Recharts renders correctly.
+                // PostgreSQL COUNT/SUM/AVG always come back as strings from the pg driver.
+                data: rows.map((row: any) => {
+                    const patched: any = { ...row };
+                    for (const key of finalYKeys) {
+                        const v = patched[key];
+                        if (v !== null && v !== undefined && !isNaN(Number(v))) {
+                            patched[key] = Number(v);
+                        }
+                    }
+                    return patched;
+                }),
             });
         } catch (dbError: any) {
             return NextResponse.json(
