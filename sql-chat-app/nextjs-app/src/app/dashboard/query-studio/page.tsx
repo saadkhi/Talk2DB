@@ -328,6 +328,31 @@ export default function QueryStudioPage() {
                             );
                         })}
                     </div>
+
+                    {/* ── Column list for selected table ── */}
+                    {selectedTable && selectedTable.columns.length > 0 && (
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <div style={{ ...labelStyle, fontSize: "9px" }}>
+                                {selectedTable.name} · {selectedTable.columns.length} cols
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "1px", overflowY: "auto" }}>
+                                {selectedTable.columns.map(col => (
+                                    <div key={col.name} style={{
+                                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                                        padding: "4px 6px", borderRadius: "5px", gap: "6px",
+                                    }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "5px", minWidth: 0 }}>
+                                            {col.isPrimary && <span style={{ fontSize: "9px", flexShrink: 0 }}>🔑</span>}
+                                            <span style={{ fontSize: "11px", fontFamily: "monospace", color: col.isPrimary ? "#fbbf24" : "#D1D5DB", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.name}</span>
+                                        </div>
+                                        <span style={{ fontSize: "9px", color: "#374151", flexShrink: 0, fontFamily: "monospace" }}>
+                                            {col.type.replace("character varying", "varchar").replace("timestamp without time zone", "ts")}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ══ RIGHT: prompt + SQL + results ══════════════════════════ */}

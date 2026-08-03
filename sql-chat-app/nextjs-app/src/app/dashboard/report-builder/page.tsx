@@ -1,8 +1,11 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ChartRenderer from "@/components/data/ChartRenderer";
 import DataTable from "@/components/data/DataTable";
 import { usePageState } from "@/context/PageStateContext";
+
+interface SchemaCol { name: string; type: string; isPrimary: boolean; }
+interface SchemaTable { name: string; rowCount: number; columns: SchemaCol[]; }
 
 export default function ReportBuilderPage() {
     const { reportBuilder: s, setReportBuilder: set } = usePageState();
@@ -18,6 +21,22 @@ export default function ReportBuilderPage() {
     const [narrativeLoading, setNarrativeLoading] = useState(false);
     const [saving, setSaving]                     = useState(false);
     const [saveError, setSaveError]               = useState<string | null>(null);
+
+    // schema for the sidebar
+    const [schemaTables, setSchemaTables]         = useState<SchemaTable[]>([]);
+    const [selectedTable, setSelectedTableLocal]  = useState<SchemaTable | null>(null);
+
+    useEffect(() => {
+        fetch("/api/schema")
+            .then(r => r.json())
+            .then(d => {
+                if (d.tables) {
+                    setSchemaTables(d.tables);
+                    if (d.tables.length) setSelectedTableLocal(d.tables[0]);
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     const handleBuildReport = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -103,7 +122,7 @@ export default function ReportBuilderPage() {
     const isComplete = !!reportData && !!narrative && !narrativeLoading;
 
     return (
-        <div style={{ maxWidth: "1100px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "24px" }}>
+        <div style={{ maxWidth: "1300px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "24px" }}>
             {/* Header */}
             <div>
                 <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>
@@ -114,8 +133,79 @@ export default function ReportBuilderPage() {
                 </p>
             </div>
 
-            {/* Prompt form */}
-            <div style={{ background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px", padding: "22px 24px" }}>
+            {/* ── Two-column: Schema panel | Report content ── */}
+            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: "16px", alignItems: "start" }}>
+
+                {/* ── LEFT: Schema panel ── */}
+                <div style={{ background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px", position: "sticky", top: "72px", maxHeight: "calc(100vh - 140px)", overflow: "hidden" }}>
+                    <p style={{ fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0, paddingBottom: "8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        Tables {schemaTables.length > 0 && `(${schemaTables.length})`}
+                    </p>
+
+                    {/* Table list */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px", overflowY: "auto", maxHeight: "160px" }}>
+                        {schemaTables.length === 0 && (
+                            <p style={{ fontSize: "11px", color: "#374151", margin: 0 }}>No database connected</p>
+                        )}
+                        {schemaTables.map(t => {
+                            const active = selectedTable?.name === t.name;
+                            return (
+                                <button key={t.name} onClick={() => setSelectedTableLocal(t)} style={{
+                                    display: "flex", alignItems: "center", gap: "6px", padding: "7px 9px",
+                                    borderRadius: "7px", border: active ? "1px solid rgba(99,102,241,0.4)" : "1px solid transparent",
+                                    background: active ? "rgba(99,102,241,0.12)" : "transparent",
+                                    cursor: "pointer", textAlign: "left", width: "100%", transition: "background 0.12s",
+                                }}
+                                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
+                                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                                >
+                                    <svg width="10" height="10" fill="none" stroke={active ? "#818cf8" : "#4B5563"} strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 2.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                                    </svg>
+                                    <span style={{ fontSize: "12px", fontFamily: "monospace", fontWeight: active ? 700 : 400, color: active ? "#a5b4fc" : "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{t.name}</span>
+                                    <span style={{ fontSize: "9px", color: "#374151", flexShrink: 0 }}>{t.rowCount.toLocaleString()}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Columns of selected table */}
+                    {selectedTable && selectedTable.columns.length > 0 && (
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <p style={{ fontSize: "9px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+                                {selectedTable.name} · {selectedTable.columns.length} cols
+                            </p>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "1px", overflowY: "auto" }}>
+                                {selectedTable.columns.map(col => (
+                                    <div key={col.name} style={{
+                                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                                        padding: "4px 6px", borderRadius: "5px", gap: "6px",
+                                        cursor: "pointer", transition: "background 0.1s",
+                                    }}
+                                        onClick={() => setPrompt(prompt ? `${prompt} ${col.name}` : col.name)}
+                                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"}
+                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
+                                        title={`Click to add "${col.name}" to prompt`}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: 0 }}>
+                                            {col.isPrimary && <span style={{ fontSize: "9px", flexShrink: 0 }}>🔑</span>}
+                                            <span style={{ fontSize: "11px", fontFamily: "monospace", color: col.isPrimary ? "#fbbf24" : "#D1D5DB", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.name}</span>
+                                        </div>
+                                        <span style={{ fontSize: "9px", color: "#374151", flexShrink: 0, fontFamily: "monospace" }}>
+                                            {col.type.replace("character varying", "varchar").replace("timestamp without time zone", "ts")}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            <p style={{ fontSize: "10px", color: "#374151", margin: 0, lineHeight: 1.4 }}>
+                                Click a column to add to prompt.
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── RIGHT: Report content ── */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                 <form onSubmit={handleBuildReport} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                     <label style={{ fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                         Report Subject
