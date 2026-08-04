@@ -3,8 +3,10 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import DataTable from "@/components/data/DataTable";
 import SQLEditor from "@/components/SQLEditor";
 import QueryHistoryDrawer from "@/components/dashboard/QueryHistoryDrawer";
+import GuestBanner from "@/components/guest/GuestBanner";
 import { usePageState } from "@/context/PageStateContext";
 import { useQueryHistory } from "@/context/QueryHistoryContext";
+import { useGuestGuard } from "@/lib/useGuestGuard";
 import { exportCSV, exportExcel } from "@/lib/exportUtils";
 import type { TableInfo, ColumnHint, QueryGuardrail } from "@/context/PageStateContext";
 
@@ -41,6 +43,7 @@ function fmtElapsed(ms: number) {
 export default function QueryStudioPage() {
     const { queryStudio: s, setQueryStudio: set } = usePageState();
     const { addEntry } = useQueryHistory();
+    const { isGuest, trialsLeft, guardedSubmit } = useGuestGuard("query");
 
     const {
         tables, loadingSchema, schemaError, tableSearch, selectedTable,
@@ -93,7 +96,8 @@ export default function QueryStudioPage() {
     /* ── load schema on mount — skip if already loaded ─────────────────── */
     useEffect(() => {
         if (!loadingSchema && tables.length > 0) return;
-        fetch("/api/schema")
+        const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        fetch(endpoint)
             .then(r => r.json())
             .then(d => {
                 if (d.error) throw new Error(d.error);
@@ -102,7 +106,7 @@ export default function QueryStudioPage() {
             .catch(e => setSchemaError(e.message))
             .finally(() => setLoadingSchema(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [isGuest]);
 
     /* ── Elapsed timer helpers ──────────────────────────────────────────── */
     const startTimer = () => {
@@ -163,7 +167,8 @@ export default function QueryStudioPage() {
         const t0 = Date.now();
 
         try {
-            const res = await fetch("/api/query/run", {
+            const runEndpoint = isGuest ? "/api/guest/query" : "/api/query/run";
+            const res = await fetch(runEndpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ sql }),
@@ -257,35 +262,38 @@ export default function QueryStudioPage() {
         setGenError(null);
         setPrompt("");
         setGuardrail(null);
-        await runSQL(sql, "");
+        await guardedSubmit(() => runSQL(sql, ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [runSQL]);
+    }, [runSQL, guardedSubmit]);
 
     /* ── generate SQL from NL prompt ─────────────────────────────────────── */
     const generateSQL = async (q: string) => {
         const trimmed = q.trim();
         if (!trimmed) return;
-        setGenerating(true);
-        setGenError(null);
-        setGeneratedSql("");
-        setColumns([]); setRows([]);
-        setHasResult(false); setRowError(null); setGuardrail(null);
-        setSelectedTable(null);
-        try {
-            const res = await fetch("/api/query", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: trimmed }),
-                signal: AbortSignal.timeout(125000),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Generation failed");
-            setGeneratedSql(data.sql ?? "");
-        } catch (e: any) {
-            setGenError(e.message);
-        } finally {
-            setGenerating(false);
-        }
+        const blocked = await guardedSubmit(async () => {
+            setGenerating(true);
+            setGenError(null);
+            setGeneratedSql("");
+            setColumns([]); setRows([]);
+            setHasResult(false); setRowError(null); setGuardrail(null);
+            setSelectedTable(null);
+            try {
+                const res = await fetch("/api/query", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: trimmed }),
+                    signal: AbortSignal.timeout(125000),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Generation failed");
+                setGeneratedSql(data.sql ?? "");
+            } catch (e: any) {
+                setGenError(e.message);
+            } finally {
+                setGenerating(false);
+            }
+        });
+        if (blocked) return;
     };
 
     /** Replace a bad value in the SQL with a suggested one and re-run */
@@ -324,6 +332,8 @@ export default function QueryStudioPage() {
     /* ─────────────────────────────────────────────────────────────────────── */
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%", maxWidth: "1400px", margin: "0 auto" }}>
+
+            <GuestBanner tool="query" />
 
             {/* ── Page header ── */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
