@@ -1,42 +1,20 @@
 "use client";
 import React, { useState } from "react";
+import { exportCSV, exportJSON, exportExcel } from "@/lib/exportUtils";
 
 interface DataTableProps {
     columns: string[];
     rows: any[];
     pageSize?: number;
+    /** Optional filename stem (without extension) used for all export formats */
+    exportFilename?: string;
 }
 
-function exportCSV(columns: string[], rows: any[], filename = "data.csv") {
-    const escape = (v: any) => {
-        const s = v == null ? "" : String(v);
-        return s.includes(",") || s.includes('"') || s.includes("\n")
-            ? `"${s.replace(/"/g, '""')}"`
-            : s;
-    };
-    const csv = [
-        columns.map(escape).join(","),
-        ...rows.map(r => columns.map(c => escape(r[c])).join(",")),
-    ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-}
-
-function exportJSON(rows: any[], filename = "data.json") {
-    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-}
-
-export default function DataTable({ columns, rows, pageSize = 25 }: DataTableProps) {
+export default function DataTable({ columns, rows, pageSize = 25, exportFilename = "data" }: DataTableProps) {
     const [page, setPage] = useState(0);
     const [sortCol, setSortCol] = useState<string | null>(null);
     const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+    const [exportingXlsx, setExportingXlsx] = useState(false);
 
     if (!columns?.length) {
         return (
@@ -79,7 +57,7 @@ export default function DataTable({ columns, rows, pageSize = 25 }: DataTablePro
                 </span>
                 <div style={{ display: "flex", gap: "8px" }}>
                     <button
-                        onClick={() => exportCSV(columns, rows)}
+                        onClick={() => exportCSV(columns, rows, `${exportFilename}.csv`)}
                         style={{ ...btnBase, background: "rgba(16,185,129,0.08)", borderColor: "rgba(16,185,129,0.2)", color: "#34d399" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,0.15)"}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,0.08)"}
@@ -91,7 +69,24 @@ export default function DataTable({ columns, rows, pageSize = 25 }: DataTablePro
                         CSV
                     </button>
                     <button
-                        onClick={() => exportJSON(rows)}
+                        onClick={async () => {
+                            setExportingXlsx(true);
+                            await exportExcel(columns, rows, `${exportFilename}.xlsx`);
+                            setExportingXlsx(false);
+                        }}
+                        disabled={exportingXlsx}
+                        style={{ ...btnBase, background: "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.2)", color: "#4ade80", opacity: exportingXlsx ? 0.6 : 1 }}
+                        onMouseEnter={e => { if (!exportingXlsx) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.15)"; }}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.08)"}
+                        title="Download as Excel (.xlsx)"
+                    >
+                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        {exportingXlsx ? "…" : "Excel"}
+                    </button>
+                    <button
+                        onClick={() => exportJSON(rows, `${exportFilename}.json`)}
                         style={{ ...btnBase, background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)", color: "#818cf8" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.15)"}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.08)"}

@@ -123,7 +123,42 @@ export async function POST(req: Request) {
             },
         });
 
-        return NextResponse.json({ success: true, message: "Database connected successfully" });
+        // ── Fetch a quick preview of the connected database ────────────────
+        let tableCount = 0;
+        let tableNames: string[] = [];
+        try {
+            const previewPool = new Pool({
+                connectionString,
+                ssl: { rejectUnauthorized: false },
+                connectionTimeoutMillis: 5000,
+            });
+            const tablesRes = await previewPool.query(`
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+                ORDER BY table_name
+                LIMIT 20
+            `);
+            tableNames = tablesRes.rows.map((r: any) => r.table_name as string);
+            tableCount = tableNames.length;
+            // Check if there are more than 20
+            const countRes = await previewPool.query(`
+                SELECT COUNT(*) AS cnt
+                FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+            `);
+            tableCount = parseInt(countRes.rows[0]?.cnt ?? "0", 10);
+            await previewPool.end();
+        } catch {
+            // non-fatal — we already verified the connection above
+        }
+
+        return NextResponse.json({
+            success: true,
+            message: "Database connected successfully",
+            tableCount,
+            tableNames,
+        });
     } catch (error: any) {
         if (process.env.NODE_ENV !== "production") {
             console.error("Database connection endpoint error:", error);

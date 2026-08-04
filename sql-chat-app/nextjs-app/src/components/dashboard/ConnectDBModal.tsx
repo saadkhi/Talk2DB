@@ -15,6 +15,8 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [connectedTableCount, setConnectedTableCount] = useState<number | null>(null);
+    const [connectedTableNames, setConnectedTableNames] = useState<string[]>([]);
     const [view, setView] = useState<"connect" | "confirm-disconnect">("connect");
     const [disconnecting, setDisconnecting] = useState(false);
     const [disconnectError, setDisconnectError] = useState<string | null>(null);
@@ -89,12 +91,16 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
             if (!res.ok) throw new Error(data.error || "Failed to verify database connection");
 
             setSuccess(true);
+            setConnectedTableCount(data.tableCount ?? null);
+            setConnectedTableNames(data.tableNames ?? []);
             await checkConnectionStatus();
             setTimeout(() => {
                 onClose();
                 setSuccess(false);
                 setConnectionString("");
-            }, 1200);
+                setConnectedTableCount(null);
+                setConnectedTableNames([]);
+            }, 3000);
         } catch (err: any) {
             setError(err.message || "Could not connect. Please check your credentials.");
         } finally {
@@ -213,16 +219,51 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                         {/* Success */}
                         {success && (
                             <div style={{
-                                display: "flex", alignItems: "center", gap: "10px",
-                                padding: "12px 14px", borderRadius: "10px",
-                                background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)",
+                                display: "flex", flexDirection: "column", gap: "12px",
+                                padding: "16px", borderRadius: "12px",
+                                background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)",
                             }}>
-                                <svg width="15" height="15" fill="none" stroke="#34d399" strokeWidth="2.5" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                </svg>
-                                <span style={{ fontSize: "12px", color: "#6ee7b7", fontWeight: 600 }}>
-                                    Connected successfully! Closing…
-                                </span>
+                                {/* Top row */}
+                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        <svg width="14" height="14" fill="none" stroke="#34d399" strokeWidth="2.5" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p style={{ fontSize: "13px", fontWeight: 700, color: "#34d399", margin: 0 }}>
+                                            Connected successfully!
+                                        </p>
+                                        {connectedTableCount !== null && (
+                                            <p style={{ fontSize: "11px", color: "#6ee7b7", margin: "2px 0 0" }}>
+                                                {connectedTableCount} table{connectedTableCount !== 1 ? "s" : ""} found in the public schema
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                                {/* Table name chips */}
+                                {connectedTableNames.length > 0 && (
+                                    <div>
+                                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#4B5563", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>
+                                            Tables detected
+                                        </p>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                            {connectedTableNames.map(t => (
+                                                <span key={t} style={{ fontSize: "11px", fontFamily: "monospace", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)", color: "#6ee7b7", borderRadius: "6px", padding: "3px 9px" }}>
+                                                    {t}
+                                                </span>
+                                            ))}
+                                            {connectedTableCount !== null && connectedTableCount > connectedTableNames.length && (
+                                                <span style={{ fontSize: "11px", color: "#4B5563", padding: "3px 9px" }}>
+                                                    +{connectedTableCount - connectedTableNames.length} more…
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                <p style={{ fontSize: "11px", color: "#4B5563", margin: 0 }}>
+                                    Closing in a moment…
+                                </p>
                             </div>
                         )}
 
