@@ -304,10 +304,15 @@ function QuickAction({ href, label, desc, accent, icon }: { href: string; label:
 export default function DashboardHome() {
     const { showConnectModal, setShowConnectModal } = useDatabase();
 
-    // live data
+    // live activity data
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [reports, setReports] = useState<SavedReport[]>([]);
     const [loadingActivity, setLoadingActivity] = useState(true);
+
+    // live DB stats
+    const [dbTableCount, setDbTableCount]       = useState<number | null>(null);
+    const [dbTotalRows, setDbTotalRows]         = useState<number | null>(null);
+    const [schemaTablesForHome, setSchemaTablesForHome] = useState<any[]>([]);
 
     useEffect(() => {
         Promise.all([
@@ -317,9 +322,17 @@ export default function DashboardHome() {
             setConversations(Array.isArray(convs) ? convs.slice(0, 6) : []);
             setReports(Array.isArray(reps) ? reps.slice(0, 6) : []);
         }).catch(() => {}).finally(() => setLoadingActivity(false));
+
+        // Fetch schema to get real table + row counts
+        fetch("/api/schema").then(r => r.ok ? r.json() : null).then(d => {
+            if (d?.tables) {
+                setDbTableCount(d.tables.length);
+                setSchemaTablesForHome(d.tables);
+                setDbTotalRows((d.tables as any[]).reduce((sum: number, t: any) => sum + (t.rowCount ?? 0), 0));
+            }
+        }).catch(() => {});
     }, []);
 
-    // derive a "streak" label from conversation dates (days with activity in last 7)
     const activeDays = React.useMemo(() => {
         const set = new Set<string>();
         conversations.forEach(c => set.add(new Date(c.updatedAt).toDateString()));
@@ -442,6 +455,13 @@ export default function DashboardHome() {
                     icon={<svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>}
                 />
                 <StatCard
+                    value={dbTableCount !== null ? dbTableCount : "—"}
+                    label="DB Tables"
+                    sub={dbTotalRows !== null ? `${dbTotalRows.toLocaleString()} total rows` : "Connected database"}
+                    color="#3b82f6"
+                    icon={<svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 2.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>}
+                />
+                <StatCard
                     value="5"
                     label="Tools Available"
                     sub="Query · Visualize · Report · Profile · Schema"
@@ -553,6 +573,42 @@ export default function DashboardHome() {
                             />
                         </div>
                     </div>
+
+                    {/* DB Tables summary */}
+                    {dbTableCount !== null && dbTableCount > 0 && (
+                        <div style={{ background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", overflow: "hidden" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#3b82f6" }} />
+                                    <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>Your Database</span>
+                                </div>
+                                <Link href="/dashboard/schema-explorer" style={{ fontSize: "11px", color: "#3b82f6", textDecoration: "none", fontWeight: 600 }}>Explore →</Link>
+                            </div>
+                            <div style={{ padding: "8px 0" }}>
+                                {/* We already have table info in dbTableCount, but need actual table rows. Re-use the schema data. */}
+                                {schemaTablesForHome.slice(0, 5).map((t: any, i: number) => (
+                                    <Link key={t.name} href="/dashboard/database-browser" style={{ textDecoration: "none" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "9px 20px", borderBottom: i < Math.min(schemaTablesForHome.length, 5) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", transition: "background 0.15s" }}
+                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"}
+                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
+                                            <div style={{ width: "30px", height: "30px", borderRadius: "8px", background: "rgba(59,130,246,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                                <svg width="13" height="13" fill="none" stroke="#3b82f6" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 2.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <p style={{ fontSize: "12px", fontWeight: 600, color: "#D1D5DB", margin: "0 0 2px", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</p>
+                                                <p style={{ fontSize: "10px", color: "#4B5563", margin: 0 }}>{t.rowCount.toLocaleString()} rows · {t.columns?.length ?? 0} columns</p>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+                                {schemaTablesForHome.length > 5 && (
+                                    <p style={{ fontSize: "11px", color: "#374151", textAlign: "center", padding: "8px 20px", margin: 0 }}>
+                                        +{schemaTablesForHome.length - 5} more tables
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
