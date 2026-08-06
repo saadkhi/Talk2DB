@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from "react";
 import ChartRenderer from "@/components/data/ChartRenderer";
 import DataTable from "@/components/data/DataTable";
+import GuestBanner from "@/components/guest/GuestBanner";
 import { usePageState } from "@/context/PageStateContext";
+import { useGuestGuard } from "@/lib/useGuestGuard";
 
 const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
 const lbl  = { fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" };
@@ -24,6 +26,7 @@ export default function DataVisualizerPage() {
     const setResult = (v: typeof result) => set({ result: v });
     const setError  = (v: string | null) => set({ error: v });
 
+    const { isGuest, guardedSubmit } = useGuestGuard("visualizer");
     const [loading, setLoading] = useState(false);
 
     // schema state — full table+columns info
@@ -32,7 +35,8 @@ export default function DataVisualizerPage() {
     const [selectedChart, setSelectedChart] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch("/api/schema")
+        const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        fetch(endpoint)
             .then(r => r.json())
             .then(d => {
                 if (d.tables) {
@@ -58,22 +62,25 @@ export default function DataVisualizerPage() {
 
     const run = async (q: string) => {
         if (!q.trim()) return;
-        setLoading(true); setError(null); setResult(null);
-        try {
-            const res = await fetch("/api/visualize", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: q }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Visualization failed");
-            setResult(data);
-        } catch (e: any) { setError(e.message); }
-        finally { setLoading(false); }
+        await guardedSubmit(async () => {
+            setLoading(true); setError(null); setResult(null);
+            try {
+                const res = await fetch("/api/visualize", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: q }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Visualization failed");
+                setResult(data);
+            } catch (e: any) { setError(e.message); }
+            finally { setLoading(false); }
+        });
     };
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px", maxWidth: "1300px", margin: "0 auto", width: "100%" }}>
             {/* Header */}
+            <GuestBanner tool="visualizer" />
             <div>
                 <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Data Visualizer</h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Choose a table and chart type, describe what you want — Talk2DB generates the SQL and renders it.</p>

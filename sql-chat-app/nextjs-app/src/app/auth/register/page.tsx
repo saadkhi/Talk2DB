@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { signIn } from "next-auth/react";
+import React, { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SchemaConstellation from "@/components/SchemaConstellation";
@@ -9,6 +9,7 @@ import styles from "../Auth.module.css";
 
 export default function RegisterPage() {
     const router = useRouter();
+    const { status } = useSession();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -16,6 +17,11 @@ export default function RegisterPage() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [githubLoading, setGithubLoading] = useState(false);
+
+    // Redirect authenticated users (covers OAuth callback landing)
+    useEffect(() => {
+        if (status === "authenticated") router.replace("/dashboard");
+    }, [status, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

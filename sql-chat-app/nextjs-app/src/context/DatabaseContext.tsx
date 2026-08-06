@@ -28,7 +28,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             setLoading(false);
             return;
         }
-
         try {
             const res = await fetch("/api/user/profile");
             if (res.ok) {

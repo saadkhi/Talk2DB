@@ -6,6 +6,7 @@ import { executeQuery } from "@/lib/dbConnection";
 import { isSQLSafe, extractSQL } from "@/lib/sqlSafety";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 import { resolveUserWithDb } from "@/lib/resolveUser";
+import { checkPromptGuardrail } from "@/lib/promptGuardrail";
 
 // Allow up to 120s for the APIFreeLLM free-tier response
 export const maxDuration = 120;
@@ -96,6 +97,12 @@ export async function POST(req: Request) {
         const { prompt } = await req.json();
         if (!prompt?.trim()) {
             return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+        }
+
+        // Guardrail — reject off-topic prompts before spending LLM tokens
+        const guard = checkPromptGuardrail(prompt);
+        if (!guard.allowed) {
+            return NextResponse.json({ error: guard.reason }, { status: 400 });
         }
 
         const user = await resolveUserWithDb(session);

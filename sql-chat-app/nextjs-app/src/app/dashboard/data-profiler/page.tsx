@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
+import GuestBanner from "@/components/guest/GuestBanner";
 import { usePageState } from "@/context/PageStateContext";
+import { useGuestGuard } from "@/lib/useGuestGuard";
 import type { TableProfile } from "@/context/PageStateContext";
 
 const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
@@ -19,26 +21,30 @@ export default function DataProfilerPage() {
     // transient loading flags
     const [loadingTables, setLoadingTables] = useState(!loaded);
     const [profiling, setProfiling]         = useState(false);
+    const { isGuest, guardedSubmit } = useGuestGuard("profiler");
 
     const runProfile = useCallback(async (table: string) => {
         if (!table) return;
-        setProfiling(true); setProfileErr(null); setProfile(null);
-        try {
-            const res = await fetch("/api/profile", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tableName: table }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Profiling failed");
-            setProfile(data);
-        } catch (e: any) { setProfileErr(e.message); }
-        finally { setProfiling(false); }
+        await guardedSubmit(async () => {
+            setProfiling(true); setProfileErr(null); setProfile(null);
+            try {
+                const res = await fetch("/api/profile", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ tableName: table }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Profiling failed");
+                setProfile(data);
+            } catch (e: any) { setProfileErr(e.message); }
+            finally { setProfiling(false); }
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [guardedSubmit]);
 
     useEffect(() => {
-        if (loaded) return; // tables list already fetched — skip re-fetch
-        fetch("/api/schema").then(r => r.json()).then(data => {
+        if (loaded) return;
+        const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        fetch(endpoint).then(r => r.json()).then(data => {
             const names = (data.tables || []).map((t: any) => t.name);
             setTables(names);
             set({ loaded: true });
@@ -53,6 +59,7 @@ export default function DataProfilerPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1100px", margin: "0 auto", width: "100%" }}>
+            <GuestBanner tool="profiler" />
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
                 <div>

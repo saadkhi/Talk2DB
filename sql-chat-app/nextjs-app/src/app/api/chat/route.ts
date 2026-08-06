@@ -6,6 +6,7 @@ import { callLLM } from "@/lib/llm";
 import { getUserDbPool } from "@/lib/dbConnection";
 import { resolveUserWithDb } from "@/lib/resolveUser";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
+import { checkPromptGuardrail } from "@/lib/promptGuardrail";
 
 // Allow up to 120s for the APIFreeLLM free-tier response
 export const maxDuration = 120;
@@ -76,6 +77,12 @@ export async function POST(req: Request) {
         const { message: userMessage, conversation_id } = await req.json();
         if (!userMessage?.trim()) {
             return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
+        }
+
+        // Guardrail — reject clearly off-topic messages before LLM call
+        const guard = checkPromptGuardrail(userMessage);
+        if (!guard.allowed) {
+            return NextResponse.json({ error: guard.reason }, { status: 400 });
         }
 
         // Resolve user with DB connection

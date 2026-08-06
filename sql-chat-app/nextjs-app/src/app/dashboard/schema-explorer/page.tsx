@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import GuestBanner from "@/components/guest/GuestBanner";
 import { usePageState } from "@/context/PageStateContext";
+import { useGuestGuard } from "@/lib/useGuestGuard";
 import type { TableInfo } from "@/context/PageStateContext";
 
 const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
@@ -13,12 +15,13 @@ export default function SchemaExplorerPage() {
     const setSearch   = (v: string)          => set({ search: v });
     const setError    = (v: string | null)   => set({ error: v });
 
-    // loading is transient
+    const { isGuest } = useGuestGuard("schema");
     const [loading, setLoading] = useState(!loaded);
 
     useEffect(() => {
-        if (loaded) return; // already have schema — skip re-fetch
-        fetch("/api/schema").then(r => r.json()).then(data => {
+        if (loaded) return;
+        const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        fetch(endpoint).then(r => r.json()).then(data => {
             if (data.error) throw new Error(data.error);
             const t = data.tables || [];
             setTables(t);
@@ -47,6 +50,7 @@ export default function SchemaExplorerPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1200px", margin: "0 auto", width: "100%" }}>
+            <GuestBanner tool="schema" />
             <div>
                 <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Schema Explorer</h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Browse tables, columns, constraints and row counts from your connected database.</p>

@@ -7,6 +7,7 @@ import { extractSQL, isSQLSafe } from "@/lib/sqlSafety";
 import { getSchema } from "../schema/route";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 import { resolveUserWithDb } from "@/lib/resolveUser";
+import { checkPromptGuardrail } from "@/lib/promptGuardrail";
 
 export async function POST(req: Request) {
     // Rate limiting
@@ -40,6 +41,12 @@ export async function POST(req: Request) {
         const { prompt } = await req.json();
         if (!prompt) {
             return NextResponse.json({ error: "Prompt required" }, { status: 400 });
+        }
+
+        // Guardrail — only allow data/DB-related visualisation requests
+        const guard = checkPromptGuardrail(prompt);
+        if (!guard.allowed) {
+            return NextResponse.json({ error: guard.reason }, { status: 400 });
         }
 
         const user = await resolveUserWithDb(session);

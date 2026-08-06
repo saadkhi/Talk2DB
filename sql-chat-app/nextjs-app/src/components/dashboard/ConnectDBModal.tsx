@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSession } from "next-auth/react";
 import { useDatabase } from "@/context/DatabaseContext";
+import GuestDbBanner from "@/components/guest/GuestDbBanner";
 
 interface ConnectDBModalProps {
     isOpen: boolean;
@@ -10,6 +12,8 @@ interface ConnectDBModalProps {
 
 export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps) {
     const { checkConnectionStatus, dbConnected, disconnectDatabase } = useDatabase();
+    const { status } = useSession();
+    const isGuest = status !== "authenticated";
     const [connectionString, setConnectionString] = useState("");
     const [dialect, setDialect] = useState<"postgresql" | "mysql" | "sqlite">("postgresql");
     const [submitting, setSubmitting] = useState(false);
@@ -36,6 +40,60 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
     };
 
     if (!isOpen) return null;
+
+    // Guests cannot connect a database — show the login/register prompt instead
+    if (isGuest) {
+        return (
+            <>
+                <div
+                    onClick={onClose}
+                    style={{
+                        position: "fixed", inset: 0, zIndex: 100,
+                        background: "rgba(0,0,0,0.75)",
+                        backdropFilter: "blur(6px)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        padding: "20px",
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            width: "100%", maxWidth: "420px",
+                            background: "#0d0f1a",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "18px",
+                            padding: "28px",
+                            boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+                            animation: "modalIn 0.2s cubic-bezier(0.16,1,0.3,1) forwards",
+                            position: "relative",
+                        }}
+                    >
+                        {/* Close button */}
+                        <button
+                            onClick={onClose}
+                            aria-label="Close"
+                            style={{
+                                position: "absolute", top: "14px", right: "14px",
+                                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                                borderRadius: "8px", width: "30px", height: "30px",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                cursor: "pointer", color: "#6B7280",
+                            }}
+                        >
+                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <h2 style={{ fontSize: "17px", fontWeight: 800, color: "#fff", margin: "0 0 18px", letterSpacing: "-0.02em" }}>
+                            Connect Your Database
+                        </h2>
+                        <GuestDbBanner />
+                    </div>
+                </div>
+                <style>{`@keyframes modalIn{from{opacity:0;transform:scale(0.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
+            </>
+        );
+    }
 
     // ── Disconnect confirmation panel ──────────────────────────────────────
     if (view === "confirm-disconnect") {

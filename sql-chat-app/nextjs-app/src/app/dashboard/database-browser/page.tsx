@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
+import GuestBanner from "@/components/guest/GuestBanner";
 import { usePageState } from "@/context/PageStateContext";
+import { useGuestGuard } from "@/lib/useGuestGuard";
 import type { TableInfo, TableData } from "@/context/PageStateContext";
 
 /* ── Shared styles ─────────────────────────────────────────── */
@@ -58,11 +60,13 @@ export default function DatabaseBrowserPage() {
     const [loadingSchema, setLoadingSchema] = useState(!loaded);
     const [schemaErr, setSchemaErr]         = useState<string | null>(null);
     const [loadingData, setLoadingData]     = useState(false);
+    const { isGuest, guardedSubmit } = useGuestGuard("browser");
 
     /* Load schema on mount — skip if already cached */
     useEffect(() => {
         if (loaded) return;
-        fetch("/api/schema").then(r => r.json()).then(d => {
+        const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        fetch(endpoint).then(r => r.json()).then(d => {
             if (d.error) throw new Error(d.error);
             const t = d.tables || [];
             setTables(t);
@@ -78,15 +82,35 @@ export default function DatabaseBrowserPage() {
         setDataErr(null);
         setActiveTab("data");
         setLoadingData(true);
-        try {
-            const r = await fetch(`/api/database/table-data?table=${encodeURIComponent(t.name)}&page=${pg}&limit=${limit}`);
-            const d = await r.json();
-            if (!r.ok) throw new Error(d.error || "Failed to load table data");
-            setTableData(d);
-        } catch (e: any) { setDataErr(e.message); setTableData(null); }
-        finally { setLoadingData(false); }
+        await guardedSubmit(async () => {
+            try {
+                if (isGuest) {
+                    // For guests: run a simple SELECT via the demo query endpoint
+                    const sql = `SELECT * FROM "${t.name}" LIMIT ${limit}`;
+                    const r = await fetch("/api/guest/query", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sql }),
+                    });
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.error || "Failed to load demo data");
+                    setTableData({
+                        table: t.name, totalRows: t.rowCount, page: pg,
+                        limit, totalPages: Math.ceil(t.rowCount / limit),
+                        columns: d.columns, rows: d.rows,
+                    });
+                } else {
+                    const r = await fetch(`/api/database/table-data?table=${encodeURIComponent(t.name)}&page=${pg}&limit=${limit}`);
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.error || "Failed to load table data");
+                    setTableData(d);
+                }
+            } catch (e: any) { setDataErr(e.message); setTableData(null); }
+            finally { setLoadingData(false); }
+        });
+        setLoadingData(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [isGuest, guardedSubmit]);
 
     const loadPage = (pg: number) => { if (selectedTable) selectTable(selectedTable, pg, pageSize); };
     const changePageSize = (sz: number) => { setPageSize(sz); if (selectedTable) selectTable(selectedTable, 0, sz); };
@@ -96,6 +120,7 @@ export default function DatabaseBrowserPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px", maxWidth: "1400px", margin: "0 auto", width: "100%" }}>
+            <GuestBanner tool="browser" />
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
                 <div>

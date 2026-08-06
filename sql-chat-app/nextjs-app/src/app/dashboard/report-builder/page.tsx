@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from "react";
 import ChartRenderer from "@/components/data/ChartRenderer";
 import DataTable from "@/components/data/DataTable";
+import GuestBanner from "@/components/guest/GuestBanner";
 import { usePageState } from "@/context/PageStateContext";
+import { useGuestGuard } from "@/lib/useGuestGuard";
 
 interface SchemaCol   { name: string; type: string; isPrimary: boolean; }
 interface SchemaTable { name: string; rowCount: number; columns: SchemaCol[]; }
@@ -24,13 +26,15 @@ export default function ReportBuilderPage() {
     const [narrativeLoading, setNarrativeLoading] = useState(false);
     const [saving, setSaving]                     = useState(false);
     const [saveError, setSaveError]               = useState<string | null>(null);
+    const { isGuest, guardedSubmit } = useGuestGuard("report");
 
     // schema sidebar
     const [schemaTables, setSchemaTables]         = useState<SchemaTable[]>([]);
     const [activeTable, setActiveTable]           = useState<SchemaTable | null>(null);
 
     useEffect(() => {
-        fetch("/api/schema").then(r => r.json()).then(d => {
+        const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        fetch(endpoint).then(r => r.json()).then(d => {
             if (d.tables?.length) {
                 setSchemaTables(d.tables);
                 setActiveTable(d.tables[0]);
@@ -42,30 +46,32 @@ export default function ReportBuilderPage() {
     const handleBuildReport = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!prompt.trim()) return;
-        setLoading(true); setNarrativeLoading(false); setError(null);
-        setSaveError(null); setReportData(null); setNarrative(null); setSavedId(null);
-        try {
-            const dataRes = await fetch("/api/report", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt }),
-            });
-            const dataResult = await dataRes.json();
-            if (!dataRes.ok) throw new Error(dataResult.error || "Failed to fetch report data");
-            setReportData(dataResult);
-            setLoading(false);
-            setNarrativeLoading(true);
-            const narrativeRes = await fetch("/api/report/narrative", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt, columns: dataResult.columns, sampleRows: dataResult.rows }),
-            });
-            const narrativeResult = await narrativeRes.json();
-            if (!narrativeRes.ok) throw new Error(narrativeResult.error || "Failed to compile narrative");
-            setNarrative(narrativeResult);
-        } catch (err: any) {
-            setError(err.message || "Failed to compile report.");
-        } finally {
-            setLoading(false); setNarrativeLoading(false);
-        }
+        await guardedSubmit(async () => {
+            setLoading(true); setNarrativeLoading(false); setError(null);
+            setSaveError(null); setReportData(null); setNarrative(null); setSavedId(null);
+            try {
+                const dataRes = await fetch("/api/report", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt }),
+                });
+                const dataResult = await dataRes.json();
+                if (!dataRes.ok) throw new Error(dataResult.error || "Failed to fetch report data");
+                setReportData(dataResult);
+                setLoading(false);
+                setNarrativeLoading(true);
+                const narrativeRes = await fetch("/api/report/narrative", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt, columns: dataResult.columns, sampleRows: dataResult.rows }),
+                });
+                const narrativeResult = await narrativeRes.json();
+                if (!narrativeRes.ok) throw new Error(narrativeResult.error || "Failed to compile narrative");
+                setNarrative(narrativeResult);
+            } catch (err: any) {
+                setError(err.message || "Failed to compile report.");
+            } finally {
+                setLoading(false); setNarrativeLoading(false);
+            }
+        });
     };
 
     const handleSaveReport = async () => {
@@ -98,6 +104,7 @@ export default function ReportBuilderPage() {
         <div style={{ maxWidth: "1300px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "20px" }}>
 
             {/* Header */}
+            <GuestBanner tool="report" />
             <div>
                 <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Report Builder</h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
