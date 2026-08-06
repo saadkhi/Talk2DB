@@ -60,12 +60,15 @@ export default function DatabaseBrowserPage() {
     const [loadingSchema, setLoadingSchema] = useState(!loaded);
     const [schemaErr, setSchemaErr]         = useState<string | null>(null);
     const [loadingData, setLoadingData]     = useState(false);
-    const { isGuest, guardedSubmit } = useGuestGuard("browser");
+    const { isGuest, sessionReady, guardedSubmit } = useGuestGuard("browser");
 
-    /* Load schema on mount — skip if already cached */
+    /* Load schema — wait for session to resolve, then fetch the right endpoint */
     useEffect(() => {
-        if (loaded) return;
+        if (!sessionReady) return;
+        if (loaded && !isGuest) return; // authenticated user already has real schema
         const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        setLoadingSchema(true);
+        set({ loaded: false });
         fetch(endpoint).then(r => r.json()).then(d => {
             if (d.error) throw new Error(d.error);
             const t = d.tables || [];
@@ -74,7 +77,7 @@ export default function DatabaseBrowserPage() {
             if (t.length && !selectedTable) selectTable(t[0], 0, pageSize);
         }).catch(e => setSchemaErr(e.message)).finally(() => setLoadingSchema(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [sessionReady, isGuest]);
 
     const selectTable = useCallback(async (t: TableInfo, pg: number, limit: number) => {
         setSelectedTable(t);

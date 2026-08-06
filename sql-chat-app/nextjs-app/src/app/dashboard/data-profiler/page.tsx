@@ -21,7 +21,7 @@ export default function DataProfilerPage() {
     // transient loading flags
     const [loadingTables, setLoadingTables] = useState(!loaded);
     const [profiling, setProfiling]         = useState(false);
-    const { isGuest, guardedSubmit } = useGuestGuard("profiler");
+    const { isGuest, sessionReady, guardedSubmit } = useGuestGuard("profiler");
 
     const runProfile = useCallback(async (table: string) => {
         if (!table) return;
@@ -42,20 +42,22 @@ export default function DataProfilerPage() {
     }, [guardedSubmit]);
 
     useEffect(() => {
-        if (loaded) return;
+        if (!sessionReady) return;
+        if (loaded && !isGuest) return; // authenticated user already has real table list
         const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        setLoadingTables(true);
+        set({ loaded: false });
         fetch(endpoint).then(r => r.json()).then(data => {
             const names = (data.tables || []).map((t: any) => t.name);
             setTables(names);
             set({ loaded: true });
-            // Only auto-profile on first visit; don't overwrite an existing result
             if (names.length && !profile) {
                 setSelected(names[0]);
                 runProfile(names[0]);
             }
         }).catch(e => setHeaderErr(e.message)).finally(() => setLoadingTables(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [sessionReady, isGuest]);
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1100px", margin: "0 auto", width: "100%" }}>

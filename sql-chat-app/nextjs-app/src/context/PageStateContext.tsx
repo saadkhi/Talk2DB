@@ -159,6 +159,10 @@ interface PageStateContextType {
 
     dataProfiler: DataProfilerState;
     setDataProfiler: (s: Partial<DataProfilerState>) => void;
+
+    /** Call when the session transitions (guest→auth or auth→guest) to flush
+     *  any cached demo schema so the next visit fetches the real one. */
+    resetSchemaCache: () => void;
 }
 
 // ─── Context + Provider ───────────────────────────────────────────────────────
@@ -181,6 +185,21 @@ export function PageStateProvider({ children }: { children: React.ReactNode }) {
     const setDatabaseBrowser=useCallback((s: Partial<DatabaseBrowserState>)=>_setDB(p  => ({ ...p,  ...s })), []);
     const setDataProfiler  = useCallback((s: Partial<DataProfilerState>)  => _setDP(p  => ({ ...p,  ...s })), []);
 
+    /**
+     * Flush all schema caches so the next tool visit re-fetches from the
+     * correct endpoint (real DB for auth users, demo for guests).
+     * Call this when the session transitions between guest ↔ authenticated.
+     */
+    const resetSchemaCache = useCallback(() => {
+        _setQS(p  => ({ ...p,  tables: [], loadingSchema: true, schemaError: null,
+                                selectedTable: null, columns: [], rows: [], hasResult: false,
+                                rowError: null, genError: null, guardrail: null }));
+        _setSE(p  => ({ ...p,  tables: [], loaded: false, selected: null, error: null }));
+        _setDB(p  => ({ ...p,  tables: [], loaded: false, selectedTable: null, tableData: null,
+                                page: 0, dataErr: null }));
+        _setDP(p  => ({ ...p,  tables: [], loaded: false, profile: null, headerErr: null, profileErr: null }));
+    }, []);
+
     return (
         <PageStateContext.Provider value={{
             queryStudio, setQueryStudio,
@@ -189,6 +208,7 @@ export function PageStateProvider({ children }: { children: React.ReactNode }) {
             reportBuilder, setReportBuilder,
             databaseBrowser, setDatabaseBrowser,
             dataProfiler, setDataProfiler,
+            resetSchemaCache,
         }}>
             {children}
         </PageStateContext.Provider>

@@ -15,12 +15,15 @@ export default function SchemaExplorerPage() {
     const setSearch   = (v: string)          => set({ search: v });
     const setError    = (v: string | null)   => set({ error: v });
 
-    const { isGuest } = useGuestGuard("schema");
+    const { isGuest, sessionReady } = useGuestGuard("schema");
     const [loading, setLoading] = useState(!loaded);
 
     useEffect(() => {
-        if (loaded) return;
+        if (!sessionReady) return; // wait for session to resolve
+        if (loaded && !isGuest) return; // auth user already has real schema cached
         const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+        setLoading(true);
+        set({ loaded: false });
         fetch(endpoint).then(r => r.json()).then(data => {
             if (data.error) throw new Error(data.error);
             const t = data.tables || [];
@@ -29,7 +32,7 @@ export default function SchemaExplorerPage() {
             set({ loaded: true });
         }).catch(e => setError(e.message)).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [sessionReady, isGuest]);
 
     const filtered = tables.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
 

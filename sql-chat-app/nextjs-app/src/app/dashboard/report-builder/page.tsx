@@ -26,13 +26,14 @@ export default function ReportBuilderPage() {
     const [narrativeLoading, setNarrativeLoading] = useState(false);
     const [saving, setSaving]                     = useState(false);
     const [saveError, setSaveError]               = useState<string | null>(null);
-    const { isGuest, guardedSubmit } = useGuestGuard("report");
+    const { isGuest, sessionReady, guardedSubmit } = useGuestGuard("report");
 
     // schema sidebar
     const [schemaTables, setSchemaTables]         = useState<SchemaTable[]>([]);
     const [activeTable, setActiveTable]           = useState<SchemaTable | null>(null);
 
     useEffect(() => {
+        if (!sessionReady) return;
         const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
         fetch(endpoint).then(r => r.json()).then(d => {
             if (d.tables?.length) {
@@ -40,7 +41,7 @@ export default function ReportBuilderPage() {
                 setActiveTable(d.tables[0]);
             }
         }).catch(() => {});
-    }, []);
+    }, [sessionReady, isGuest]);
 
     /* ── handlers ── */
     const handleBuildReport = async (e: React.FormEvent) => {

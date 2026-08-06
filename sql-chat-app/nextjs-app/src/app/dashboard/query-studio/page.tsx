@@ -43,7 +43,7 @@ function fmtElapsed(ms: number) {
 export default function QueryStudioPage() {
     const { queryStudio: s, setQueryStudio: set } = usePageState();
     const { addEntry } = useQueryHistory();
-    const { isGuest, trialsLeft, guardedSubmit } = useGuestGuard("query");
+    const { isGuest, sessionReady, trialsLeft, guardedSubmit } = useGuestGuard("query");
 
     const {
         tables, loadingSchema, schemaError, tableSearch, selectedTable,
@@ -93,10 +93,20 @@ export default function QueryStudioPage() {
         if (hasResult) resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, [hasResult]);
 
-    /* ── load schema on mount — skip if already loaded ─────────────────── */
+    /* ── load schema on mount ───────────────────────────────────────────── */
     useEffect(() => {
-        if (!loadingSchema && tables.length > 0) return;
+        // Wait until the session has finished resolving so we know for sure
+        // whether the user is authenticated or a guest. Firing before that
+        // means we could pull demo tables for someone who is actually logged in.
+        if (!sessionReady) return;
+
         const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
+
+        // Clear any previously loaded (possibly stale demo) tables before fetching
+        setLoadingSchema(true);
+        setTables([]);
+        setSchemaError(null);
+
         fetch(endpoint)
             .then(r => r.json())
             .then(d => {
@@ -105,8 +115,10 @@ export default function QueryStudioPage() {
             })
             .catch(e => setSchemaError(e.message))
             .finally(() => setLoadingSchema(false));
+    // Re-runs when session resolves (sessionReady: false→true) and when
+    // isGuest changes (e.g. user logs in from the same tab).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isGuest]);
+    }, [sessionReady, isGuest]);
 
     /* ── Elapsed timer helpers ──────────────────────────────────────────── */
     const startTimer = () => {

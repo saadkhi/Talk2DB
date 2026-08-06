@@ -8,7 +8,9 @@
  *   2. Otherwise consumes a trial, then calls your handler.
  *
  * Returns helpers:
- *   isGuest       – true when unauthenticated
+ *   isGuest       – true when unauthenticated (NOTE: false during "loading" so
+ *                   callers don't accidentally fetch guest data while session resolves)
+ *   sessionReady  – true once the session status is no longer "loading"
  *   trialsUsed    – number of trials consumed so far for this tool
  *   trialsLeft    – remaining free tries
  *   guardedSubmit – wraps a submit handler with the trial gate
@@ -21,15 +23,14 @@ export function useGuestGuard(tool: GuestTool) {
     const { status } = useSession();
     const { trials, isLimitReached, consumeTrial, setBlockedTool } = useGuest();
 
-    const isGuest   = status !== "authenticated";
+    // Session is still resolving — treat as authenticated so we don't
+    // accidentally pull demo data that then gets cached in PageStateContext
+    const sessionReady = status !== "loading";
+    const isGuest      = sessionReady && status !== "authenticated";
+
     const trialsUsed = trials[tool] ?? 0;
     const trialsLeft = Math.max(0, MAX_TRIALS - trialsUsed);
 
-    /**
-     * Call this instead of your submit handler directly.
-     * @param fn  The async action to perform if the user has tries left.
-     * @returns   true if the action was blocked, false if it ran.
-     */
     async function guardedSubmit(fn: () => Promise<void> | void): Promise<boolean> {
         if (!isGuest) {
             await fn();
@@ -38,12 +39,11 @@ export function useGuestGuard(tool: GuestTool) {
 
         if (isLimitReached(tool)) {
             setBlockedTool(tool);
-            return true; // blocked
+            return true;
         }
 
         const blocked = consumeTrial(tool);
         if (blocked) {
-            // consumeTrial already called setBlockedTool
             return true;
         }
 
@@ -51,5 +51,5 @@ export function useGuestGuard(tool: GuestTool) {
         return false;
     }
 
-    return { isGuest, trialsUsed, trialsLeft, guardedSubmit };
+    return { isGuest, sessionReady, trialsUsed, trialsLeft, guardedSubmit };
 }

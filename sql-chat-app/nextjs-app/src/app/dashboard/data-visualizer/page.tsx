@@ -26,7 +26,7 @@ export default function DataVisualizerPage() {
     const setResult = (v: typeof result) => set({ result: v });
     const setError  = (v: string | null) => set({ error: v });
 
-    const { isGuest, guardedSubmit } = useGuestGuard("visualizer");
+    const { isGuest, sessionReady, guardedSubmit } = useGuestGuard("visualizer");
     const [loading, setLoading] = useState(false);
 
     // schema state — full table+columns info
@@ -35,17 +35,18 @@ export default function DataVisualizerPage() {
     const [selectedChart, setSelectedChart] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!sessionReady) return;
         const endpoint = isGuest ? "/api/guest/schema" : "/api/schema";
         fetch(endpoint)
             .then(r => r.json())
             .then(d => {
                 if (d.tables) {
                     setSchemaTables(d.tables);
-                    if (d.tables.length) setSelectedTable(d.tables[0]);
+                    setSelectedTable(d.tables[0] ?? null);
                 }
             })
             .catch(() => {});
-    }, []);
+    }, [sessionReady, isGuest]);
 
     // When user clicks a table or chart type, insert a hint into the prompt
     const insertTableHint = (t: SchemaTable) => {
