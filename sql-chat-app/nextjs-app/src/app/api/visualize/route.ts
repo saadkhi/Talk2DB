@@ -72,19 +72,49 @@ export async function POST(req: Request) {
             }
         }
 
+        const VALID_CHART_TYPES = [
+            "bar","bar-horizontal","bar-grouped","bar-grouped-horizontal",
+            "bar-stacked","bar-stacked-horizontal","bar-negative","bar-waterfall","histogram","heatmap-bar",
+            "line","line-multi","line-monotone","line-natural","line-basis","line-bump","line-step","line-step-after",
+            "area","area-stacked","area-stream","area-normalized","area-step",
+            "pie","donut","donut-thin","pie-multi","gauge",
+            "scatter","bubble",
+            "radar","radar-filled","radar-multi","radial-bar","radial-bar-stacked",
+            "funnel","funnel-pyramid","treemap",
+            "combo-bar-line","combo-bar-area","combo-area-line",
+        ];
+
         const chartPrompt = `User request: "${prompt}"
-    
-    Database Schema:
-    ${schemaContext || "No schema context available."}
-    
-    Return ONLY a JSON object (no markdown, no explanation, no \`\`\`json wrapper, just pure text):
-    {
-      "sql": "SELECT column1, column2 FROM table_name LIMIT 100",
-      "chartType": "bar|line|pie|area",
-      "xKey": "column_name_for_x_axis",
-      "yKeys": ["column_name_for_values"],
-      "title": "Descriptive Chart Title"
-    }`;
+
+Database Schema:
+${schemaContext || "No schema context available."}
+
+Valid chartType values (pick the BEST one for the request):
+${VALID_CHART_TYPES.join(", ")}
+
+Rules:
+- Use "pie" or "donut" when comparing proportions of a whole (e.g. gender split, category share).
+- Use "bar" or "bar-horizontal" for simple category comparisons.
+- Use "bar-stacked" when the request mentions stacked or breakdown.
+- Use "line" or "line-multi" for time-series or trends.
+- Use "area-stacked" for cumulative trends.
+- Use "scatter" or "bubble" when comparing two numeric columns.
+- Use "radar" or "radar-filled" for multi-dimension comparisons.
+- Use "radial-bar" for circular progress / ranking.
+- Use "funnel" for pipeline / conversion data.
+- Use "treemap" for hierarchical or proportional data with names.
+- Use "combo-bar-line" when the user wants both a bar and line on the same chart.
+- Use "histogram" or "heatmap-bar" for distributions.
+- Use "gauge" for a single KPI value.
+
+Return ONLY a JSON object (no markdown, no explanation, no \`\`\`json wrapper):
+{
+  "sql": "SELECT column1, column2 FROM table_name LIMIT 100",
+  "chartType": "<one of the valid values above>",
+  "xKey": "column_name_for_x_axis_or_category",
+  "yKeys": ["column_name_for_values"],
+  "title": "Descriptive Chart Title"
+}`;
 
         let chartConfig: any;
         try {

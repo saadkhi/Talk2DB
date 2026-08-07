@@ -9,13 +9,101 @@ import { useGuestGuard } from "@/lib/useGuestGuard";
 const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
 const lbl  = { fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" };
 
-/* ── Available chart types ── */
-const CHART_TYPES = [
-    { id: "bar",  label: "Bar Chart",   desc: "Compare values across categories",     icon: "▬" },
-    { id: "line", label: "Line Chart",  desc: "Show trends over time",                icon: "∿" },
-    { id: "pie",  label: "Pie Chart",   desc: "Show proportions of a whole",           icon: "◑" },
-    { id: "area", label: "Area Chart",  desc: "Filled line chart for volume/trends",   icon: "▲" },
+/* ── 55 Chart types in 7 categories ── */
+const CHART_GROUPS = [
+    {
+        group: "Bar Charts",
+        color: "#6366f1",
+        charts: [
+            { id: "bar",                     label: "Bar Chart",              desc: "Compare values across categories" },
+            { id: "bar-horizontal",          label: "Horizontal Bar",         desc: "Bar chart with horizontal layout" },
+            { id: "bar-grouped",             label: "Grouped Bar",            desc: "Multiple series side by side" },
+            { id: "bar-grouped-horizontal",  label: "Grouped Horizontal",     desc: "Grouped bars, horizontal layout" },
+            { id: "bar-stacked",             label: "Stacked Bar",            desc: "Series stacked on top of each other" },
+            { id: "bar-stacked-horizontal",  label: "Stacked Horizontal",     desc: "Stacked bars, horizontal layout" },
+            { id: "bar-negative",            label: "Diverging Bar",          desc: "Positive & negative values" },
+            { id: "bar-waterfall",           label: "Waterfall Chart",        desc: "Cumulative effect of sequential values" },
+            { id: "histogram",               label: "Histogram",              desc: "Distribution of a single variable" },
+            { id: "heatmap-bar",             label: "Heatmap Bar",            desc: "Bar colored by value intensity" },
+        ],
+    },
+    {
+        group: "Line Charts",
+        color: "#22d3ee",
+        charts: [
+            { id: "line",            label: "Line Chart",         desc: "Show trends over time" },
+            { id: "line-multi",      label: "Multi-Line",         desc: "Multiple series as lines" },
+            { id: "line-monotone",   label: "Smooth Line",        desc: "Smooth monotone interpolation" },
+            { id: "line-natural",    label: "Natural Curve",      desc: "Natural spline interpolation" },
+            { id: "line-basis",      label: "Basis Curve",        desc: "B-spline interpolation" },
+            { id: "line-bump",       label: "Bump Chart",         desc: "Rankings change over time" },
+            { id: "line-step",       label: "Step Line",          desc: "Step-before interpolation" },
+            { id: "line-step-after", label: "Step After",         desc: "Step-after interpolation" },
+        ],
+    },
+    {
+        group: "Area Charts",
+        color: "#10b981",
+        charts: [
+            { id: "area",             label: "Area Chart",         desc: "Filled line for volume/trends" },
+            { id: "area-stacked",     label: "Stacked Area",       desc: "Series stacked as filled areas" },
+            { id: "area-stream",      label: "Stream Graph",       desc: "Flowing stacked areas" },
+            { id: "area-normalized",  label: "100% Area",          desc: "Normalized proportional areas" },
+            { id: "area-step",        label: "Step Area",          desc: "Stepped filled area" },
+        ],
+    },
+    {
+        group: "Pie & Donut",
+        color: "#f59e0b",
+        charts: [
+            { id: "pie",        label: "Pie Chart",     desc: "Proportions of a whole" },
+            { id: "donut",      label: "Donut Chart",   desc: "Pie with hollow center" },
+            { id: "donut-thin", label: "Thin Donut",    desc: "Slim ring chart" },
+            { id: "pie-multi",  label: "Multi-Pie",     desc: "Multiple measures in slices" },
+            { id: "gauge",      label: "Gauge Chart",   desc: "Single value on a semi-circle" },
+        ],
+    },
+    {
+        group: "Scatter & Bubble",
+        color: "#ef4444",
+        charts: [
+            { id: "scatter", label: "Scatter Plot",  desc: "X vs Y correlation" },
+            { id: "bubble",  label: "Bubble Chart",  desc: "Scatter with sized bubbles" },
+        ],
+    },
+    {
+        group: "Radar & Radial",
+        color: "#8b5cf6",
+        charts: [
+            { id: "radar",             label: "Radar Chart",      desc: "Multi-variable spider web" },
+            { id: "radar-filled",      label: "Filled Radar",     desc: "Filled spider web" },
+            { id: "radar-multi",       label: "Multi Radar",      desc: "Multiple series on radar" },
+            { id: "radial-bar",        label: "Radial Bar",       desc: "Circular progress bars" },
+            { id: "radial-bar-stacked",label: "Radial Stacked",   desc: "Stacked circular bars" },
+        ],
+    },
+    {
+        group: "Funnel & Tree",
+        color: "#06b6d4",
+        charts: [
+            { id: "funnel",          label: "Funnel Chart",   desc: "Pipeline / conversion stages" },
+            { id: "funnel-pyramid",  label: "Pyramid Chart",  desc: "Inverted funnel / hierarchy" },
+            { id: "treemap",         label: "Treemap",        desc: "Nested rectangles by size" },
+        ],
+    },
+    {
+        group: "Combo Charts",
+        color: "#f97316",
+        charts: [
+            { id: "combo-bar-line",  label: "Bar + Line",    desc: "Bars with an overlaid line" },
+            { id: "combo-bar-area",  label: "Bar + Area",    desc: "Bars with an overlaid area" },
+            { id: "combo-area-line", label: "Area + Line",   desc: "Area with a dashed trend line" },
+        ],
+    },
 ];
+
+// Flat list for prompt hint lookup
+const CHART_TYPES_FLAT = CHART_GROUPS.flatMap(g => g.charts);
 
 interface SchemaTable { name: string; rowCount: number; columns: { name: string; type: string }[] }
 
@@ -56,7 +144,7 @@ export default function DataVisualizerPage() {
 
     const buildPromptHint = () => {
         const parts: string[] = [];
-        if (selectedChart) parts.push(CHART_TYPES.find(c => c.id === selectedChart)?.label ?? "");
+        if (selectedChart) parts.push((CHART_TYPES_FLAT as {id:string;label:string;desc:string}[]).find(c => c.id === selectedChart)?.label ?? "");
         if (selectedTable) parts.push(`using ${selectedTable.name} table`);
         return parts.join(" ");
     };
@@ -88,7 +176,7 @@ export default function DataVisualizerPage() {
             </div>
 
             {/* ── Main 3-col layout: Tables | Prompt | Charts ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 200px", gap: "14px", alignItems: "start" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 220px", gap: "14px", alignItems: "start" }}>
 
                 {/* ── LEFT: Tables + Columns ── */}
                 <div style={{ ...card, padding: "14px", display: "flex", flexDirection: "column", gap: "10px", position: "sticky", top: "72px", maxHeight: "calc(100vh - 140px)", overflow: "hidden" }}>
@@ -167,7 +255,7 @@ export default function DataVisualizerPage() {
                                 {(selectedTable || selectedChart) && (
                                     <button type="button" onClick={() => setPrompt(buildPromptHint())}
                                         style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "20px", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)", color: "#93c5fd", cursor: "pointer" }}>
-                                        ← Use {[selectedChart ? CHART_TYPES.find(c=>c.id===selectedChart)?.label : null, selectedTable?.name].filter(Boolean).join(" · ")}
+                                        ← Use {[selectedChart ? (CHART_TYPES_FLAT as {id:string;label:string;desc:string}[]).find(c=>c.id===selectedChart)?.label : null, selectedTable?.name].filter(Boolean).join(" · ")}
                                     </button>
                                 )}
                             </div>
@@ -234,33 +322,59 @@ export default function DataVisualizerPage() {
                 </div>
 
                 {/* ── RIGHT: Chart type list ── */}
-                <div style={{ ...card, padding: "14px", position: "sticky", top: "72px" }}>
-                    <p style={{ ...lbl, margin: "0 0 10px", paddingBottom: "8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Chart Types</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        {CHART_TYPES.map(ct => {
-                            const active = selectedChart === ct.id;
-                            return (
-                                <button key={ct.id} onClick={() => setSelectedChart(active ? null : ct.id)} style={{
-                                    display: "flex", alignItems: "flex-start", gap: "9px", padding: "10px 11px",
-                                    borderRadius: "9px", textAlign: "left", width: "100%", cursor: "pointer",
-                                    border: active ? "1px solid rgba(59,130,246,0.45)" : "1px solid rgba(255,255,255,0.06)",
-                                    background: active ? "rgba(59,130,246,0.12)" : "rgba(255,255,255,0.02)",
-                                    transition: "all 0.15s",
-                                }}
-                                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
-                                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"; }}
-                                >
-                                    <span style={{ fontSize: "16px", lineHeight: 1, flexShrink: 0, marginTop: "1px" }}>{ct.icon}</span>
-                                    <div>
-                                        <p style={{ fontSize: "12px", fontWeight: 700, color: active ? "#93c5fd" : "#fff", margin: "0 0 2px" }}>{ct.label}</p>
-                                        <p style={{ fontSize: "10px", color: "#4B5563", margin: 0, lineHeight: 1.4 }}>{ct.desc}</p>
-                                    </div>
-                                </button>
-                            );
-                        })}
+                <div style={{ ...card, padding: "14px", position: "sticky", top: "72px", maxHeight: "calc(100vh - 140px)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                    <p style={{ ...lbl, margin: "0 0 10px", paddingBottom: "8px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+                        Chart Types <span style={{ color: "#374151", fontWeight: 400 }}>({CHART_TYPES_FLAT.length})</span>
+                    </p>
+
+                    <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "14px", paddingRight: "2px" }}>
+                        {CHART_GROUPS.map(group => (
+                            <div key={group.group}>
+                                {/* Group header */}
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "5px" }}>
+                                    <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: group.color, flexShrink: 0 }} />
+                                    <span style={{ fontSize: "9px", fontWeight: 700, color: group.color, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                                        {group.group}
+                                    </span>
+                                </div>
+                                {/* Charts in this group */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                                    {group.charts.map(ct => {
+                                        const active = selectedChart === ct.id;
+                                        return (
+                                            <button
+                                                key={ct.id}
+                                                onClick={() => setSelectedChart(active ? null : ct.id)}
+                                                style={{
+                                                    display: "flex", alignItems: "center", gap: "8px",
+                                                    padding: "7px 9px", borderRadius: "7px",
+                                                    textAlign: "left", width: "100%", cursor: "pointer",
+                                                    border: active ? `1px solid ${group.color}55` : "1px solid rgba(255,255,255,0.05)",
+                                                    background: active ? `${group.color}18` : "rgba(255,255,255,0.01)",
+                                                    transition: "all 0.13s",
+                                                }}
+                                                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
+                                                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.01)"; }}
+                                            >
+                                                <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: active ? group.color : "#374151", flexShrink: 0, marginTop: "1px" }} />
+                                                <div style={{ minWidth: 0 }}>
+                                                    <p style={{ fontSize: "11px", fontWeight: active ? 700 : 500, color: active ? "#fff" : "#D1D5DB", margin: "0 0 1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                        {ct.label}
+                                                    </p>
+                                                    <p style={{ fontSize: "9px", color: "#4B5563", margin: 0, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                        {ct.desc}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                    <p style={{ fontSize: "10px", color: "#374151", margin: "10px 0 0", lineHeight: 1.4 }}>
-                        Select a chart type to prefill your prompt.
+
+                    <p style={{ fontSize: "9px", color: "#374151", margin: "8px 0 0", lineHeight: 1.4, flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "8px" }}>
+                        Click a type → prefills your prompt.
                     </p>
                 </div>
             </div>
