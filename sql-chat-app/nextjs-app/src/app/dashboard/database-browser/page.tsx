@@ -7,7 +7,7 @@ import type { TableInfo, TableData } from "@/context/PageStateContext";
 
 /* ── Shared styles ─────────────────────────────────────────── */
 const card: React.CSSProperties = {
-    background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px",
+    background: "#0d0f1a", border: "1px solid var(--border)", borderRadius: "12px",
 };
 const label: React.CSSProperties = {
     fontSize: "10px", fontWeight: 700, color: "#6B7280",
@@ -127,7 +127,7 @@ export default function DatabaseBrowserPage() {
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
                 <div>
-                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Database Browser</h1>
+                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Database Browser</h1>
                     <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
                         Browse all tables, inspect structure, and view live row data from your connected database.
                     </p>
@@ -135,12 +135,12 @@ export default function DatabaseBrowserPage() {
                 {!loadingSchema && tables.length > 0 && (
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", ...card, padding: "8px 14px" }}>
                         <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
-                        <span style={{ fontSize: "12px", color: "#9CA3AF" }}>
-                            <span style={{ color: "#fff", fontWeight: 600 }}>{tables.length}</span> tables
+                        <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                            <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{tables.length}</span> tables
                         </span>
                         <span style={{ width: "1px", height: "14px", background: "rgba(255,255,255,0.08)" }} />
-                        <span style={{ fontSize: "12px", color: "#9CA3AF" }}>
-                            <span style={{ color: "#fff", fontWeight: 600 }}>{tables.reduce((s, t) => s + t.rowCount, 0).toLocaleString()}</span> total rows
+                        <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                            <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{tables.reduce((s, t) => s + t.rowCount, 0).toLocaleString()}</span> total rows
                         </span>
                     </div>
                 )}
@@ -152,7 +152,7 @@ export default function DatabaseBrowserPage() {
 
             {!loadingSchema && !schemaErr && tables.length === 0 && (
                 <div style={{ ...card, padding: "48px 24px", textAlign: "center" }}>
-                    <p style={{ fontSize: "15px", fontWeight: 700, color: "#fff", margin: "0 0 6px" }}>No tables found</p>
+                    <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 6px" }}>No tables found</p>
                     <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>Connect a PostgreSQL database to browse its tables.</p>
                 </div>
             )}
@@ -167,7 +167,7 @@ export default function DatabaseBrowserPage() {
                         <input
                             value={search} onChange={e => setSearch(e.target.value)}
                             placeholder="Search tables…"
-                            style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "7px 12px", fontSize: "12px", color: "#fff", outline: "none", width: "100%", boxSizing: "border-box" }}
+                            style={{ background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: "8px", padding: "7px 12px", fontSize: "12px", color: "var(--text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }}
                         />
                         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "2px" }}>
                             {filtered.map(t => {
@@ -204,7 +204,7 @@ export default function DatabaseBrowserPage() {
                                 {/* Table header */}
                                 <div style={{ ...card, padding: "14px 20px", borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                        <h2 style={{ fontSize: "15px", fontWeight: 800, color: "#fff", margin: 0, fontFamily: "monospace" }}>{selectedTable.name}</h2>
+                                        <h2 style={{ fontSize: "15px", fontWeight: 800, color: "var(--text-primary)", margin: 0, fontFamily: "monospace" }}>{selectedTable.name}</h2>
                                         <span style={{ fontSize: "10px", color: "#34d399", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: "20px", padding: "2px 9px", fontWeight: 700 }}>
                                             {selectedTable.rowCount.toLocaleString()} rows
                                         </span>
@@ -280,7 +280,7 @@ export default function DatabaseBrowserPage() {
                                                         <tr style={{ background: "rgba(255,255,255,0.03)", position: "sticky", top: 0 }}>
                                                             <th style={{ padding: "9px 14px", textAlign: "left", fontSize: "10px", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid rgba(255,255,255,0.07)", width: "48px" }}>#</th>
                                                             {tableData.columns.map(col => (
-                                                                <th key={col} style={{ padding: "9px 14px", textAlign: "left", fontSize: "10px", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid rgba(255,255,255,0.07)", whiteSpace: "nowrap" }}>
+                                                                <th key={col} style={{ padding: "9px 14px", textAlign: "left", fontSize: "10px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid rgba(255,255,255,0.07)", whiteSpace: "nowrap" }}>
                                                                     {col}
                                                                 </th>
                                                             ))}
@@ -333,16 +333,16 @@ export default function DatabaseBrowserPage() {
                                                 </span>
                                                 <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                                                     <button onClick={() => loadPage(0)} disabled={tableData.page === 0}
-                                                        style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: tableData.page === 0 ? "#374151" : "#9CA3AF", cursor: tableData.page === 0 ? "not-allowed" : "pointer" }}>«</button>
+                                                        style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: tableData.page === 0 ? "#374151" : "#9CA3AF", cursor: tableData.page === 0 ? "not-allowed" : "pointer" }}>«</button>
                                                     <button onClick={() => loadPage(tableData.page - 1)} disabled={tableData.page === 0}
-                                                        style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: tableData.page === 0 ? "#374151" : "#9CA3AF", cursor: tableData.page === 0 ? "not-allowed" : "pointer" }}>‹ Prev</button>
+                                                        style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: tableData.page === 0 ? "#374151" : "#9CA3AF", cursor: tableData.page === 0 ? "not-allowed" : "pointer" }}>‹ Prev</button>
                                                     <span style={{ fontSize: "11px", color: "#6B7280", padding: "0 8px" }}>
                                                         Page {tableData.page + 1} / {tableData.totalPages}
                                                     </span>
                                                     <button onClick={() => loadPage(tableData.page + 1)} disabled={tableData.page >= tableData.totalPages - 1}
-                                                        style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: tableData.page >= tableData.totalPages - 1 ? "#374151" : "#9CA3AF", cursor: tableData.page >= tableData.totalPages - 1 ? "not-allowed" : "pointer" }}>Next ›</button>
+                                                        style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: tableData.page >= tableData.totalPages - 1 ? "#374151" : "#9CA3AF", cursor: tableData.page >= tableData.totalPages - 1 ? "not-allowed" : "pointer" }}>Next ›</button>
                                                     <button onClick={() => loadPage(tableData.totalPages - 1)} disabled={tableData.page >= tableData.totalPages - 1}
-                                                        style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: tableData.page >= tableData.totalPages - 1 ? "#374151" : "#9CA3AF", cursor: tableData.page >= tableData.totalPages - 1 ? "not-allowed" : "pointer" }}>»</button>
+                                                        style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: tableData.page >= tableData.totalPages - 1 ? "#374151" : "#9CA3AF", cursor: tableData.page >= tableData.totalPages - 1 ? "not-allowed" : "pointer" }}>»</button>
                                                 </div>
                                             </div>
                                         )}
@@ -367,7 +367,7 @@ export default function DatabaseBrowserPage() {
                                                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"}
                                                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
                                                         >
-                                                            <td style={{ padding: "11px 16px", fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>
+                                                            <td style={{ padding: "11px 16px", fontFamily: "monospace", fontWeight: 700, color: "var(--text-primary)" }}>
                                                                 {col.isPrimary && <span style={{ marginRight: "6px" }}>🔑</span>}
                                                                 {col.name}
                                                             </td>

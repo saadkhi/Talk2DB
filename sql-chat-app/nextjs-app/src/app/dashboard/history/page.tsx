@@ -100,7 +100,7 @@ export default function HistoryPage() {
 
     const card: React.CSSProperties = {
         background: "#0d0f1a",
-        border: "1px solid rgba(255,255,255,0.08)",
+        border: "1px solid var(--border)",
         borderRadius: "14px",
         overflow: "hidden",
         transition: "border-color 0.15s",
@@ -112,7 +112,7 @@ export default function HistoryPage() {
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
                 <div>
-                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>
+                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>
                         Chat History
                     </h1>
                     <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
@@ -125,9 +125,9 @@ export default function HistoryPage() {
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Search conversations…"
                         style={{
-                            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                            background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)",
                             borderRadius: "9px", padding: "8px 14px", fontSize: "12px",
-                            color: "#fff", outline: "none", width: "220px",
+                            color: "var(--text-primary)", outline: "none", width: "220px",
                         }}
                     />
                     <button
@@ -169,7 +169,7 @@ export default function HistoryPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
-                    <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#fff", margin: "0 0 6px" }}>
+                    <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 6px" }}>
                         {search ? "No conversations match your search" : "No conversations yet"}
                     </h3>
                     <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>
@@ -194,7 +194,7 @@ export default function HistoryPage() {
                             <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => loadMessages(conv.id)}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
                                     <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#6366f1", flexShrink: 0 }} />
-                                    <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    <h3 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                         {conv.title}
                                     </h3>
                                 </div>
@@ -207,7 +207,7 @@ export default function HistoryPage() {
                                 <button
                                     onClick={() => loadMessages(conv.id)}
                                     disabled={isLoadingThis}
-                                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#9CA3AF", borderRadius: "7px", padding: "5px 12px", fontSize: "11px", fontWeight: 600, cursor: "pointer", minWidth: "76px", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
+                                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: "7px", padding: "5px 12px", fontSize: "11px", fontWeight: 600, cursor: "pointer", minWidth: "76px", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
                                 >
                                     {isLoadingThis ? (
                                         <div style={{ width: "10px", height: "10px", border: "2px solid rgba(255,255,255,0.2)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />

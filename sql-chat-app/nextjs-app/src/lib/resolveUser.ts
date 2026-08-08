@@ -1,52 +1,63 @@
-/**
- * resolveUser.ts — Single source of truth for resolving the authenticated user.
- *
- * Strategy:
- *  1. Try lookup by JWT token.id first (fast path).
- *  2. If that user has no dbConnectionString but the email-matched user does,
- *     use the email-matched user (handles DB migrations / id mismatches).
- *  3. Always fall back to email lookup when id lookup fails.
- */
 import type { Session } from "next-auth";
+import { cookies } from "next/headers";
 import prisma from "./prisma";
 
-type UserWithDb = {
+export type UserWithDb = {
     id: string;
     email: string | null;
     name: string | null;
     dbConnectionString: string | null;
     dbDialect: string | null;
+    connections: any[];
 };
 
-export async function resolveUserWithDb(session: Session): Promise<UserWithDb | null> {
+export async function resolveUserWithDb(session: Session, connectionId?: string | null): Promise<UserWithDb | null> {
     const tokenId = (session.user as any)?.id as string | undefined;
     const email   = session.user?.email ?? null;
 
-    let byId: UserWithDb | null = null;
-    let byEmail: UserWithDb | null = null;
+    if (!tokenId && !email) return null;
 
-    // Look up by token id
+    let user = null;
     if (tokenId) {
-        byId = await prisma.user.findUnique({
+        user = await prisma.user.findUnique({
             where: { id: tokenId },
-            select: { id: true, email: true, name: true, dbConnectionString: true, dbDialect: true },
+            select: { id: true, email: true, name: true, connections: true },
         });
     }
 
-    // Look up by email (only if needed — different id or no result)
-    if (email && (!byId || !byId.dbConnectionString)) {
-        byEmail = await prisma.user.findUnique({
+    if (!user && email) {
+        user = await prisma.user.findUnique({
             where: { email },
-            select: { id: true, email: true, name: true, dbConnectionString: true, dbDialect: true },
+            select: { id: true, email: true, name: true, connections: true },
         });
     }
 
-    // Prefer whichever has dbConnectionString
-    if (byId?.dbConnectionString) return byId;
-    if (byEmail?.dbConnectionString) return byEmail;
+    if (!user) return null;
 
-    // Neither has a connection — return whichever user record exists
-    return byId ?? byEmail ?? null;
+    let activeConn = null;
+    let finalConnectionId = connectionId;
+
+    if (!finalConnectionId) {
+        const cookieStore = cookies();
+        finalConnectionId = cookieStore.get("talk2db_active_connection")?.value;
+    }
+
+    if (finalConnectionId) {
+        activeConn = user.connections.find((c: any) => c.id === finalConnectionId);
+    } 
+    
+    if (!activeConn && user.connections.length > 0) {
+        activeConn = user.connections.find((c: any) => c.isDefault) || user.connections[0];
+    }
+
+    return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        dbConnectionString: activeConn?.dbConnectionString ?? null,
+        dbDialect: activeConn?.dbDialect ?? null,
+        connections: user.connections,
+    };
 }
 
 export async function resolveUserId(session: Session): Promise<string | null> {

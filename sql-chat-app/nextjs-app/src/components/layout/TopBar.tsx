@@ -4,6 +4,7 @@ import React from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useDatabase } from "@/context/DatabaseContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface TopBarProps {
     isCollapsed: boolean;
@@ -13,7 +14,7 @@ interface TopBarProps {
 }
 
 export default function TopBar({ isCollapsed, onToggleCollapse, onOpenMobile, isMobile }: TopBarProps) {
-    const { dbConnected, loading, setShowConnectModal } = useDatabase();
+    const { dbConnected, loading, setShowConnectModal, connections, activeConnectionId, setActiveConnectionId } = useDatabase();
     const { status } = useSession();
     const router = useRouter();
     const isGuest = status !== "authenticated";
@@ -96,22 +97,52 @@ export default function TopBar({ isCollapsed, onToggleCollapse, onOpenMobile, is
                         Guest Mode · Sign in to connect DB
                     </button>
                 ) : !loading ? (
-                    <button onClick={handleDbClick} style={{
-                        display: "flex", alignItems: "center", gap: "6px",
-                        padding: "5px 12px", borderRadius: "20px", fontSize: "11px", fontWeight: 600,
-                        border: dbConnected ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(239,68,68,0.25)",
-                        background: dbConnected ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
-                        color: dbConnected ? "#34d399" : "#f87171",
-                        cursor: "pointer",
-                        transition: "all 0.15s",
-                    }}>
-                        <span style={{
-                            width: "6px", height: "6px", borderRadius: "50%", flexShrink: 0,
-                            background: dbConnected ? "#10b981" : "#ef4444",
-                            boxShadow: dbConnected ? "0 0 6px #10b981" : "0 0 6px #ef4444",
-                        }} />
-                        {dbConnected ? "Connected" : "Not Connected"}
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <div style={{
+                            display: "flex", alignItems: "center", gap: "6px",
+                            padding: "5px 12px", borderRadius: "20px", fontSize: "11px", fontWeight: 600,
+                            border: dbConnected ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(239,68,68,0.25)",
+                            background: dbConnected ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
+                            color: dbConnected ? "#34d399" : "#f87171",
+                        }}>
+                            <span style={{
+                                width: "6px", height: "6px", borderRadius: "50%", flexShrink: 0,
+                                background: dbConnected ? "#10b981" : "#ef4444",
+                                boxShadow: dbConnected ? "0 0 6px #10b981" : "0 0 6px #ef4444",
+                            }} />
+                            
+                            {dbConnected ? (
+                                <select 
+                                    value={activeConnectionId || ""}
+                                    onChange={(e) => setActiveConnectionId(e.target.value)}
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "inherit",
+                                        fontWeight: "inherit",
+                                        outline: "none",
+                                        cursor: "pointer",
+                                        width: "100px",
+                                        textOverflow: "ellipsis"
+                                    }}
+                                >
+                                    {connections.map(c => (
+                                        <option key={c.id} value={c.id} style={{ color: "#000" }}>{c.name}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                "Not Connected"
+                            )}
+                        </div>
+                        <button onClick={handleDbClick} style={{
+                            padding: "4px", borderRadius: "6px", background: "rgba(255,255,255,0.05)", border: "none", cursor: "pointer",
+                            color: "#9ca3af", display: "flex", alignItems: "center"
+                        }} title="Add Connection">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                        </button>
+                    </div>
                 ) : null}
             </div>
 
@@ -164,6 +195,8 @@ export default function TopBar({ isCollapsed, onToggleCollapse, onOpenMobile, is
                     </svg>
                     Star on GitHub
                 </a>
+
+                <ThemeToggle />
 
                 <button style={{
                     background: "none", border: "1px solid rgba(255,255,255,0.07)",

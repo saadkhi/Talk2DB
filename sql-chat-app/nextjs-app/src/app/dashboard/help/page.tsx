@@ -5,7 +5,7 @@ import Link from "next/link";
 /* ── Design tokens ────────────────────────────────────────── */
 const card: React.CSSProperties = {
     background: "#0d0f1a",
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: "1px solid var(--border)",
     borderRadius: "14px",
 };
 
@@ -167,12 +167,12 @@ export default function HelpPage() {
 
             {/* Header */}
             <div>
-                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Help & Documentation</h1>
+                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Help & Documentation</h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Everything you need to get the most out of Talk2DB.</p>
             </div>
 
             {/* Tab bar */}
-            <div style={{ display: "flex", gap: "4px", background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "4px" }}>
+            <div style={{ display: "flex", gap: "4px", background: "#0d0f1a", border: "1px solid var(--border)", borderRadius: "10px", padding: "4px" }}>
                 {(["quickstart", "tools", "faq"] as const).map(tab => {
                     const labels = { quickstart: "Quick Start", tools: "Tool Guides", faq: "FAQ" };
                     const active = activeTab === tab;
@@ -193,7 +193,7 @@ export default function HelpPage() {
             {activeTab === "quickstart" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                     <div style={{ ...card, padding: "24px 28px" }}>
-                        <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#fff", margin: "0 0 20px", letterSpacing: "-0.02em" }}>
+                        <h2 style={{ fontSize: "16px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 20px", letterSpacing: "-0.02em" }}>
                             Get up and running in 3 steps
                         </h2>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
@@ -208,8 +208,8 @@ export default function HelpPage() {
                                         {i < arr.length - 1 && <div style={{ width: "1px", flex: 1, background: "rgba(255,255,255,0.06)", marginTop: "6px" }} />}
                                     </div>
                                     <div style={{ flex: 1, paddingTop: "4px" }}>
-                                        <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 6px" }}>{step.title}</p>
-                                        <p style={{ fontSize: "13px", color: "#9CA3AF", lineHeight: 1.65, margin: "0 0 12px" }}>{step.body}</p>
+                                        <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 6px" }}>{step.title}</p>
+                                        <p style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.65, margin: "0 0 12px" }}>{step.body}</p>
                                         <Link href={step.link} style={{
                                             display: "inline-flex", alignItems: "center", gap: "6px",
                                             fontSize: "12px", fontWeight: 700, color: step.color,
@@ -234,7 +234,7 @@ export default function HelpPage() {
                         ].map(f => (
                             <div key={f.title} style={{ ...card, padding: "16px 18px" }}>
                                 <p style={{ fontSize: "22px", margin: "0 0 8px" }}>{f.icon}</p>
-                                <p style={{ fontSize: "13px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>{f.title}</p>
+                                <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px" }}>{f.title}</p>
                                 <p style={{ fontSize: "12px", color: "#6B7280", margin: 0, lineHeight: 1.55 }}>{f.body}</p>
                             </div>
                         ))}
@@ -253,7 +253,7 @@ export default function HelpPage() {
                                     {tool.icon}
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <h3 style={{ fontSize: "15px", fontWeight: 800, color: "#fff", margin: 0 }}>{tool.title}</h3>
+                                    <h3 style={{ fontSize: "15px", fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>{tool.title}</h3>
                                     <p style={{ fontSize: "12px", color: "#6B7280", margin: "2px 0 0", lineHeight: 1.5 }}>{tool.description}</p>
                                 </div>
                                 <Link href={tool.href} style={{ fontSize: "11px", fontWeight: 700, color: tool.accent, background: `${tool.accent}12`, border: `1px solid ${tool.accent}30`, padding: "6px 14px", borderRadius: "7px", textDecoration: "none", whiteSpace: "nowrap" }}>
@@ -266,7 +266,7 @@ export default function HelpPage() {
                                     <p style={{ fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>How to use</p>
                                     <ol style={{ margin: 0, paddingLeft: "18px", display: "flex", flexDirection: "column", gap: "8px" }}>
                                         {tool.steps.map((s, i) => (
-                                            <li key={i} style={{ fontSize: "12px", color: "#9CA3AF", lineHeight: 1.6 }}>{s}</li>
+                                            <li key={i} style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.6 }}>{s}</li>
                                         ))}
                                     </ol>
                                 </div>
@@ -274,7 +274,7 @@ export default function HelpPage() {
                                     <p style={{ fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Pro Tips</p>
                                     <ul style={{ margin: 0, paddingLeft: "0", listStyle: "none", display: "flex", flexDirection: "column", gap: "8px" }}>
                                         {tool.tips.map((t, i) => (
-                                            <li key={i} style={{ fontSize: "12px", color: "#9CA3AF", lineHeight: 1.6, display: "flex", alignItems: "flex-start", gap: "6px" }}>
+                                            <li key={i} style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.6, display: "flex", alignItems: "flex-start", gap: "6px" }}>
                                                 <span style={{ color: tool.accent, flexShrink: 0, marginTop: "1px" }}>›</span>
                                                 {t}
                                             </li>
@@ -304,7 +304,7 @@ export default function HelpPage() {
                                 </button>
                                 {open && (
                                     <div style={{ padding: "0 20px 18px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                                        <p style={{ fontSize: "13px", color: "#9CA3AF", lineHeight: 1.7, margin: "14px 0 0" }}>{faq.a}</p>
+                                        <p style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.7, margin: "14px 0 0" }}>{faq.a}</p>
                                     </div>
                                 )}
                             </div>
@@ -314,14 +314,14 @@ export default function HelpPage() {
                     {/* Support footer */}
                     <div style={{ ...card, padding: "22px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "14px", marginTop: "8px" }}>
                         <div>
-                            <p style={{ fontSize: "14px", fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>Still have questions?</p>
+                            <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px" }}>Still have questions?</p>
                             <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>Open a GitHub issue or explore the source code.</p>
                         </div>
                         <a href="https://github.com" target="_blank" rel="noopener noreferrer" style={{
                             display: "inline-flex", alignItems: "center", gap: "8px",
                             padding: "9px 20px", borderRadius: "9px", fontSize: "12px", fontWeight: 700,
                             background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                            color: "#fff", textDecoration: "none", transition: "all 0.15s",
+                            color: "var(--text-primary)", textDecoration: "none", transition: "all 0.15s",
                         }}>
                             <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />

@@ -94,7 +94,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { prompt } = await req.json();
+        const { prompt, previousSql, previousPrompt } = await req.json();
         if (!prompt?.trim()) {
             return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
         }
@@ -130,15 +130,21 @@ CRITICAL RULES:
 2. ${dialectHint}
 3. Return ONLY the raw SQL SELECT query — NO markdown, NO code fences, NO explanation, NO comments.
 4. If the user's request matches a table in the schema, use that table's EXACT name as shown (e.g. if schema says "employees", write FROM "employees").
+5. If a Previous Query is provided, you must refine or modify it to meet the New Request. Do not start from scratch unless the new request is completely unrelated.
 
 DATABASE SCHEMA:
 ${schemaContext}`
             : `You are a ${dialect.toUpperCase()} SQL expert. ${dialectHint}
-Return ONLY the raw SQL SELECT query — NO markdown, NO code fences, NO explanation.`;
+Return ONLY the raw SQL SELECT query — NO markdown, NO code fences, NO explanation. If modifying a previous query, apply the requested changes to it.`;
 
-        const userMessage = schemaContext
-            ? `User Request: ${prompt}\n\nGenerate a SQL SELECT query using ONLY the exact table and column names from the schema provided in your instructions.`
-            : `User Request: ${prompt}\n\nGenerate a SQL SELECT query.`;
+        let userMessage = "";
+        if (previousSql) {
+            userMessage += `Previous Request: ${previousPrompt || 'N/A'}\nPrevious Query:\n${previousSql}\n\n`;
+        }
+        
+        userMessage += schemaContext 
+            ? `New Request: ${prompt}\n\nGenerate or refine the SQL SELECT query using ONLY the exact table and column names from the schema provided in your instructions.`
+            : `New Request: ${prompt}\n\nGenerate or refine the SQL SELECT query.`;
 
         let rawSQL: string;
         try {

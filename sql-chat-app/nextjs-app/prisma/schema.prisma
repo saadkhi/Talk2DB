@@ -12,15 +12,38 @@ model User {
   name                  String?
   email                 String         @unique
   password              String?        // bcrypt hashed
-  dbConnectionString    String?        // AES-256 encrypted user's own DB URL
-  dbDialect             String?        // "postgresql" | "mysql" | "sqlite"
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
+  connections           DbConnection[]
+  dashboardItems        DashboardItem[]
   conversations         Conversation[]
   savedReports          SavedReport[]
+  savedQueries          SavedQuery[]
   auditLogs             AuditLog[]
   accounts              Account[]
   sessions              Session[]
+}
+
+model DbConnection {
+  id                 String   @id @default(cuid())
+  userId             String
+  name               String
+  dbConnectionString String
+  dbDialect          String
+  isDefault          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DashboardItem {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  type      String   // "chart" | "metric" | "table"
+  sql       String
+  config    String?  // JSON string
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Account {
@@ -76,7 +99,20 @@ model SavedReport {
   chartType String?
   summary   String?
   insights  String[] // array of strings
+  schedule  String?  // cron string (e.g., "0 9 * * 1" for Mondays at 9am)
+  lastRunAt DateTime?
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SavedQuery {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  sql       String
+  tags      String[] // array of strings for tags
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

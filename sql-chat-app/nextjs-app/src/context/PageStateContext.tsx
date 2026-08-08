@@ -37,6 +37,7 @@ export interface QueryStudioState {
     editedSql: string;
     columns: string[];
     rows: any[];
+    results?: { columns: string[], rows: any[] }[];
     hasResult: boolean;
     rowError: string | null;
     genError: string | null;
@@ -120,7 +121,7 @@ const defaultQueryStudio: QueryStudioState = {
     tables: [], loadingSchema: true, schemaError: null,
     tableSearch: "", selectedTable: null,
     prompt: "", generatedSql: "", editedSql: "",
-    columns: [], rows: [], hasResult: false,
+    columns: [], rows: [], results: [], hasResult: false,
     rowError: null, genError: null, guardrail: null,
 };
 const defaultVisualizer: VisualizerState = { prompt: "", result: null, error: null };
@@ -192,7 +193,7 @@ export function PageStateProvider({ children }: { children: React.ReactNode }) {
      */
     const resetSchemaCache = useCallback(() => {
         _setQS(p  => ({ ...p,  tables: [], loadingSchema: true, schemaError: null,
-                                selectedTable: null, columns: [], rows: [], hasResult: false,
+                                selectedTable: null, columns: [], rows: [], results: [], hasResult: false,
                                 rowError: null, genError: null, guardrail: null }));
         _setSE(p  => ({ ...p,  tables: [], loaded: false, selected: null, error: null }));
         _setDB(p  => ({ ...p,  tables: [], loaded: false, selectedTable: null, tableData: null,

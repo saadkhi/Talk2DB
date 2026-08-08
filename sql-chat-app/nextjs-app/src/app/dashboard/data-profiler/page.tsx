@@ -5,7 +5,7 @@ import { usePageState } from "@/context/PageStateContext";
 import { useGuestGuard } from "@/lib/useGuestGuard";
 import type { TableProfile } from "@/context/PageStateContext";
 
-const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
+const card = { background: "#0d0f1a", border: "1px solid var(--border)", borderRadius: "14px" };
 const S = { label: { fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" } };
 
 export default function DataProfilerPage() {
@@ -65,7 +65,7 @@ export default function DataProfilerPage() {
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
                 <div>
-                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Data Profiler</h1>
+                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Data Profiler</h1>
                     <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Analyze null rates, cardinality, value distributions and anomalies for any table.</p>
                 </div>
                 {!loadingTables && tables.length > 0 && (
@@ -74,7 +74,7 @@ export default function DataProfilerPage() {
                         <select value={selected}
                             onChange={e => { setSelected(e.target.value); runProfile(e.target.value); }}
                             disabled={profiling}
-                            style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", padding: "6px 12px", fontSize: "12px", fontFamily: "monospace", outline: "none", cursor: "pointer" }}
+                            style={{ background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "var(--text-primary)", padding: "6px 12px", fontSize: "12px", fontFamily: "monospace", outline: "none", cursor: "pointer" }}
                         >
                             {tables.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -129,7 +129,7 @@ export default function DataProfilerPage() {
                                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"}
                                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
                                         >
-                                            <td style={{ padding: "10px 14px", fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>{col.name}</td>
+                                            <td style={{ padding: "10px 14px", fontFamily: "monospace", fontWeight: 700, color: "var(--text-primary)" }}>{col.name}</td>
                                             <td style={{ padding: "10px 14px", fontFamily: "monospace", color: "#22d3ee" }}>{col.type}</td>
                                             <td style={{ padding: "10px 14px" }}>
                                                 <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -137,7 +137,7 @@ export default function DataProfilerPage() {
                                                     <span style={{ fontSize: "10px", color: "#4B5563" }}>({col.nullCount} nulls)</span>
                                                 </div>
                                             </td>
-                                            <td style={{ padding: "10px 14px", color: "#9CA3AF", fontFamily: "monospace" }}>{col.distinctCount.toLocaleString()}</td>
+                                            <td style={{ padding: "10px 14px", color: "var(--text-secondary)", fontFamily: "monospace" }}>{col.distinctCount.toLocaleString()}</td>
                                             <td style={{ padding: "10px 14px" }}>
                                                 {col.anomalies.length > 0
                                                     ? <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
@@ -160,8 +160,8 @@ export default function DataProfilerPage() {
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: "12px" }}>
                                 {profile.columns.map(col => {
                                     if (col.min != null) return (
-                                        <div key={col.name} style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
-                                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#fff", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name} <span style={{ color: "#22d3ee", fontWeight: 400 }}>({col.type})</span></p>
+                                        <div key={col.name} style={{ background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
+                                            <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name} <span style={{ color: "#22d3ee", fontWeight: 400 }}>({col.type})</span></p>
                                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", textAlign: "center" }}>
                                                 {[["MIN", col.min?.toLocaleString() ?? "—", "#9CA3AF"], ["AVG", col.avg?.toFixed(2) ?? "—", "#818cf8"], ["MAX", col.max?.toLocaleString() ?? "—", "#9CA3AF"]].map(([l, v, c]) => (
                                                     <div key={l as string} style={{ background: "rgba(255,255,255,0.03)", borderRadius: "6px", padding: "8px 4px" }}>
@@ -173,8 +173,8 @@ export default function DataProfilerPage() {
                                         </div>
                                     );
                                     if (col.min_date) return (
-                                        <div key={col.name} style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
-                                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#fff", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name}</p>
+                                        <div key={col.name} style={{ background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
+                                            <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name}</p>
                                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                                                 {[["Earliest", col.min_date], ["Latest", col.max_date]].map(([l, v]) => (
                                                     <div key={l as string} style={{ background: "rgba(255,255,255,0.03)", borderRadius: "6px", padding: "8px" }}>
@@ -197,14 +197,14 @@ export default function DataProfilerPage() {
                             <p style={{ ...S.label, margin: "0 0 14px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Top Value Distributions</p>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "12px" }}>
                                 {profile.columns.filter(c => c.topValues?.length).map(col => (
-                                    <div key={col.name} style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
-                                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#fff", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name}</p>
+                                    <div key={col.name} style={{ background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "10px", padding: "14px 16px" }}>
+                                        <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace", margin: "0 0 10px" }}>{col.name}</p>
                                         <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
                                             {col.topValues!.map((v, i) => {
                                                 const pct = profile.totalRows > 0 ? Math.round((v.count / profile.totalRows) * 100) : 0;
                                                 return (
                                                     <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                                        <span style={{ fontSize: "11px", color: "#9CA3AF", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "0 0 120px" }}>{v.value || "[empty]"}</span>
+                                                        <span style={{ fontSize: "11px", color: "var(--text-secondary)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "0 0 120px" }}>{v.value || "[empty]"}</span>
                                                         <div style={{ flex: 1, height: "6px", background: "rgba(255,255,255,0.05)", borderRadius: "3px", overflow: "hidden" }}>
                                                             <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,#6366f1,#8b5cf6)", borderRadius: "3px" }} />
                                                         </div>

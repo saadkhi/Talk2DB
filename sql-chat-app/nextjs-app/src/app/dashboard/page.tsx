@@ -21,6 +21,15 @@ interface SavedReport {
     createdAt: string;
 }
 
+interface DashboardItem {
+    id: string;
+    title: string;
+    sql: string;
+    type: string;
+    config: any;
+    createdAt: string;
+}
+
 /* ─────────────────────────── helpers ───────────────────────── */
 function timeAgo(iso: string) {
     const diff = Date.now() - new Date(iso).getTime();
@@ -267,7 +276,7 @@ function StatCard({ value, label, sub, color, icon }: { value: string | number; 
                 </div>
             </div>
             <div>
-                <p style={{ fontSize: "28px", fontWeight: 800, color: "#fff", margin: "0 0 2px", letterSpacing: "-0.04em", lineHeight: 1 }}>{value}</p>
+                <p style={{ fontSize: "28px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 2px", letterSpacing: "-0.04em", lineHeight: 1 }}>{value}</p>
                 <p style={{ fontSize: "11px", color: "#6B7280", margin: 0 }}>{sub}</p>
             </div>
         </div>
@@ -289,7 +298,7 @@ function QuickAction({ href, label, desc, accent, icon }: { href: string; label:
                     {icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: "13px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>{label}</p>
+                    <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 2px" }}>{label}</p>
                     <p style={{ fontSize: "11px", color: "#6B7280", margin: 0 }}>{desc}</p>
                 </div>
                 <svg width="13" height="13" fill="none" stroke={accent} strokeWidth="2" viewBox="0 0 24 24" style={{ opacity: h ? 1 : 0.3, transition: "opacity 0.18s", flexShrink: 0 }}>
@@ -307,6 +316,7 @@ export default function DashboardHome() {
     // live activity data
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [reports, setReports] = useState<SavedReport[]>([]);
+    const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
     const [loadingActivity, setLoadingActivity] = useState(true);
 
     // live DB stats
@@ -318,9 +328,11 @@ export default function DashboardHome() {
         Promise.all([
             fetch("/api/conversations").then(r => r.ok ? r.json() : []),
             fetch("/api/report/save").then(r => r.ok ? r.json() : []),
-        ]).then(([convs, reps]) => {
+            fetch("/api/dashboard").then(r => r.ok ? r.json() : []),
+        ]).then(([convs, reps, dashes]) => {
             setConversations(Array.isArray(convs) ? convs.slice(0, 6) : []);
             setReports(Array.isArray(reps) ? reps.slice(0, 6) : []);
+            setDashboardItems(Array.isArray(dashes) ? dashes : []);
         }).catch(() => {}).finally(() => setLoadingActivity(false));
 
         // Fetch schema to get real table + row counts
@@ -349,22 +361,22 @@ export default function DashboardHome() {
                     <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#6366f1", marginBottom: "16px" }}>
                         AI-POWERED SQL ASSISTANT
                     </p>
-                    <h1 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 900, color: "#fff", lineHeight: 1.15, letterSpacing: "-0.03em", margin: "0 0 16px" }}>
+                    <h1 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 900, color: "var(--text-primary)", lineHeight: 1.15, letterSpacing: "-0.03em", margin: "0 0 16px" }}>
                         Chat with your<br />
                         Database.{" "}
                         <span style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Naturally.</span>
                     </h1>
-                    <p style={{ fontSize: "14px", color: "#9CA3AF", lineHeight: 1.65, marginBottom: "28px", maxWidth: "420px" }}>
+                    <p style={{ fontSize: "14px", color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: "28px", maxWidth: "420px" }}>
                         Ask questions, generate SQL, visualize results, and build reports — all in one place.
                     </p>
                     <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                        <Link href="/dashboard/query-studio" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 22px", borderRadius: "10px", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontSize: "13px", fontWeight: 700, textDecoration: "none", boxShadow: "0 4px 18px rgba(99,102,241,0.3)", transition: "filter 0.15s" }}
+                        <Link href="/dashboard/query-studio" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 22px", borderRadius: "10px", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "var(--text-primary)", fontSize: "13px", fontWeight: 700, textDecoration: "none", boxShadow: "0 4px 18px rgba(99,102,241,0.3)", transition: "filter 0.15s" }}
                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"}
                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}>
                             Start Asking
                             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
                         </Link>
-                        <button onClick={() => setShowConnectModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 22px", borderRadius: "10px", cursor: "pointer", background: "rgba(255,255,255,0.04)", color: "#9CA3AF", fontSize: "13px", fontWeight: 600, border: "1px solid rgba(255,255,255,0.1)", transition: "all 0.15s" }}
+                        <button onClick={() => setShowConnectModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 22px", borderRadius: "10px", cursor: "pointer", background: "rgba(255,255,255,0.04)", color: "var(--text-secondary)", fontSize: "13px", fontWeight: 600, border: "1px solid rgba(255,255,255,0.1)", transition: "all 0.15s" }}
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.2)"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#9CA3AF"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)"; }}>
                             Explore Features
@@ -374,7 +386,7 @@ export default function DashboardHome() {
 
                 {/* Right: SQL demo card */}
                 <div style={{ flex: "1 1 360px", maxWidth: "460px" }}>
-                    <div style={{ borderRadius: "16px", border: "1px solid rgba(255,255,255,0.08)", background: "#0a0c18", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+                    <div style={{ borderRadius: "16px", border: "1px solid var(--border)", background: "#0a0c18", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
                         <div style={{ padding: "16px 16px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                             <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                                 <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -478,7 +490,7 @@ export default function DashboardHome() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#6366f1" }} />
-                            <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>Recent Conversations</span>
+                            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>Recent Conversations</span>
                         </div>
                         <Link href="/dashboard/history" style={{ fontSize: "11px", color: "#6366f1", textDecoration: "none", fontWeight: 600 }}>View all →</Link>
                     </div>
@@ -522,7 +534,7 @@ export default function DashboardHome() {
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#10b981" }} />
-                                <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>Saved Reports</span>
+                                <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>Saved Reports</span>
                             </div>
                             <Link href="/dashboard/saved-queries" style={{ fontSize: "11px", color: "#10b981", textDecoration: "none", fontWeight: 600 }}>View all →</Link>
                         </div>
@@ -560,7 +572,7 @@ export default function DashboardHome() {
 
                     {/* Quick Actions */}
                     <div style={{ background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "16px 20px" }}>
-                        <p style={{ fontSize: "13px", fontWeight: 700, color: "#fff", margin: "0 0 14px" }}>Quick Actions</p>
+                        <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 14px" }}>Quick Actions</p>
                         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             <QuickAction href="/dashboard/query-studio" label="New Query" desc="Ask a question in plain English" accent="#6366f1"
                                 icon={<svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>}
@@ -580,7 +592,7 @@ export default function DashboardHome() {
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                     <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#3b82f6" }} />
-                                    <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>Your Database</span>
+                                    <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>Your Database</span>
                                 </div>
                                 <Link href="/dashboard/schema-explorer" style={{ fontSize: "11px", color: "#3b82f6", textDecoration: "none", fontWeight: 600 }}>Explore →</Link>
                             </div>
@@ -612,6 +624,51 @@ export default function DashboardHome() {
                 </div>
             </div>
 
+            {/* ── Pinned Dashboard ───────────────────────────────── */}
+            {!loadingActivity && dashboardItems.length > 0 && (
+                <div style={{ background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "20px 24px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+                        <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981" }} />
+                        <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>Pinned Dashboard</h2>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
+                        {dashboardItems.map(item => (
+                            <div key={item.id} style={{
+                                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+                                borderRadius: "12px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px"
+                            }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                    <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#E5E7EB", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                        {item.title}
+                                    </h3>
+                                    <button 
+                                        onClick={async (e) => {
+                                            e.preventDefault();
+                                            await fetch(`/api/dashboard?id=${item.id}`, { method: "DELETE" });
+                                            setDashboardItems(prev => prev.filter(p => p.id !== item.id));
+                                        }}
+                                        style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", padding: "4px" }}
+                                    >
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                                <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: "8px", padding: "10px", fontSize: "11px", color: "#9CA3AF", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                                    {item.sql}
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
+                                    <span style={{ fontSize: "10px", color: "#6B7280", textTransform: "uppercase", fontWeight: 700 }}>
+                                        {item.type}
+                                    </span>
+                                    <Link href="/dashboard/query-studio" style={{ fontSize: "11px", color: "#818cf8", textDecoration: "none", fontWeight: 600 }}>
+                                        Open in Studio →
+                                    </Link>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* ── Ready to connect + badges ────────────────────── */}
             <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start", padding: "24px 28px", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.07)", background: "#0d0f1a" }}>
                 {/* CTA */}
@@ -620,12 +677,12 @@ export default function DashboardHome() {
                         <svg width="16" height="16" fill="none" stroke="#6366f1" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 2.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
                         </svg>
-                        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#fff", margin: 0 }}>Ready to connect?</h3>
+                        <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>Ready to connect?</h3>
                     </div>
                     <p style={{ fontSize: "12px", color: "#6B7280", lineHeight: 1.55, marginBottom: "16px" }}>
                         Connect your PostgreSQL database securely and start asking questions.
                     </p>
-                    <button onClick={() => setShowConnectModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "9px 18px", borderRadius: "9px", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontSize: "12px", fontWeight: 700, border: "none", boxShadow: "0 4px 14px rgba(99,102,241,0.25)", transition: "filter 0.15s" }}
+                    <button onClick={() => setShowConnectModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "9px 18px", borderRadius: "9px", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "var(--text-primary)", fontSize: "12px", fontWeight: 700, border: "none", boxShadow: "0 4px 14px rgba(99,102,241,0.25)", transition: "filter 0.15s" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}>
                         <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
@@ -644,7 +701,7 @@ export default function DashboardHome() {
                                 {b.icon}
                             </div>
                             <div>
-                                <p style={{ fontSize: "12px", fontWeight: 600, color: "#fff", margin: "0 0 2px" }}>{b.label}</p>
+                                <p style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 2px" }}>{b.label}</p>
                                 <p style={{ fontSize: "11px", color: "#6B7280", margin: 0, lineHeight: 1.45 }}>{b.sub}</p>
                             </div>
                         </div>

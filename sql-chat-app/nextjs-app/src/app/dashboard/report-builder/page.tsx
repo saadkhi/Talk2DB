@@ -9,7 +9,7 @@ import { useGuestGuard } from "@/lib/useGuestGuard";
 interface SchemaCol   { name: string; type: string; isPrimary: boolean; }
 interface SchemaTable { name: string; rowCount: number; columns: SchemaCol[]; }
 
-const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" } as const;
+const card = { background: "#0d0f1a", border: "1px solid var(--border)", borderRadius: "14px" } as const;
 const lbl  = { fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" };
 const spin = `@keyframes spin { to { transform: rotate(360deg); } }`;
 
@@ -107,7 +107,7 @@ export default function ReportBuilderPage() {
             {/* Header */}
             <GuestBanner tool="report" />
             <div>
-                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Report Builder</h1>
+                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Report Builder</h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
                     Compile executive analytics: live query datasets, interactive charts, AI-driven summaries and strategic insights.
                 </p>
@@ -193,8 +193,8 @@ export default function ReportBuilderPage() {
                                 disabled={loading || narrativeLoading}
                                 required
                                 style={{
-                                    background: "#080a12", border: "1px solid rgba(255,255,255,0.08)",
-                                    color: "#fff", padding: "14px 16px", borderRadius: "10px",
+                                    background: "var(--bg-base)", border: "1px solid var(--border)",
+                                    color: "var(--text-primary)", padding: "14px 16px", borderRadius: "10px",
                                     fontSize: "13px", minHeight: "88px", resize: "vertical",
                                     fontFamily: "inherit", lineHeight: 1.6, outline: "none", transition: "border-color 0.15s",
                                     width: "100%", boxSizing: "border-box",
@@ -207,7 +207,7 @@ export default function ReportBuilderPage() {
                                     padding: "10px 24px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
                                     cursor: loading || narrativeLoading ? "not-allowed" : "pointer",
                                     background: loading || narrativeLoading ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                                    color: "#fff", border: "none",
+                                    color: "var(--text-primary)", border: "none",
                                     boxShadow: loading || narrativeLoading ? "none" : "0 4px 14px rgba(99,102,241,0.3)",
                                     transition: "filter 0.15s",
                                 }}
@@ -236,7 +236,7 @@ export default function ReportBuilderPage() {
                             <div style={{ ...card, padding: "22px 24px" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "16px", paddingBottom: "16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                                     <div>
-                                        <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.02em" }}>
+                                        <h2 style={{ fontSize: "18px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.02em" }}>
                                             {narrative?.title || "Generating report…"}
                                         </h2>
                                         <span style={{ fontSize: "10px", fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: "20px", padding: "2px 10px", letterSpacing: "0.08em" }}>
@@ -296,7 +296,7 @@ export default function ReportBuilderPage() {
                                     <div>
                                         <p style={{ ...lbl, margin: "0 0 10px", paddingBottom: "8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>AI Insights</p>
                                         {narrativeLoading ? <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>{[80,90,70].map((w,i)=><div key={i} style={{ height: "10px", borderRadius: "5px", background: "rgba(255,255,255,0.05)", width: `${w}%` }}/>)}</div>
-                                        : narrative && <ul style={{ margin: 0, paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>{narrative.insights.map((ins,i)=><li key={i} style={{ fontSize: "12px", color: "#9CA3AF", lineHeight: 1.55 }}>{ins}</li>)}</ul>}
+                                        : narrative && <ul style={{ margin: 0, paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>{narrative.insights.map((ins,i)=><li key={i} style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.55 }}>{ins}</li>)}</ul>}
                                     </div>
                                     <div>
                                         <p style={{ ...lbl, margin: "0 0 10px", paddingBottom: "8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>Recommendations</p>
@@ -307,7 +307,7 @@ export default function ReportBuilderPage() {
                             </div>
 
                             {/* SQL */}
-                            <details style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "12px", padding: "14px 18px", cursor: "pointer" }}>
+                            <details style={{ background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "12px", padding: "14px 18px", cursor: "pointer" }}>
                                 <summary style={{ ...lbl, outline: "none", userSelect: "none", display: "flex", justifyContent: "space-between", cursor: "pointer" }}>
                                     <span>Generated SQL</span><span style={{ color: "#6366f1" }}>▼</span>
                                 </summary>

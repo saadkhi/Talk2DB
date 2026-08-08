@@ -4,12 +4,12 @@ import { useSession, signOut } from "next-auth/react";
 import { useDatabase } from "@/context/DatabaseContext";
 import ConnectDBModal from "@/components/dashboard/ConnectDBModal";
 
-const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px", padding: "22px 24px" };
-const sectionTitle = { fontSize: "13px", fontWeight: 700, color: "#fff", margin: "0 0 4px" };
+const card = { background: "#0d0f1a", border: "1px solid var(--border)", borderRadius: "14px", padding: "22px 24px" };
+const sectionTitle = { fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px" };
 const sectionSub = { fontSize: "12px", color: "#6B7280", margin: "0 0 18px" };
 const inputStyle: React.CSSProperties = {
-    background: "#080a12", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "9px",
-    color: "#fff", padding: "10px 14px", fontSize: "13px", fontFamily: "inherit",
+    background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: "9px",
+    color: "var(--text-primary)", padding: "10px 14px", fontSize: "13px", fontFamily: "inherit",
     width: "100%", boxSizing: "border-box", outline: "none", transition: "border-color 0.15s",
 };
 const label = { fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em", display: "block", marginBottom: "6px" };
@@ -109,7 +109,7 @@ export default function SettingsPage() {
         <div style={{ maxWidth: "680px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "24px", width: "100%" }}>
             {/* Header */}
             <div>
-                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Settings</h1>
+                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Settings</h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Manage your account, security, and database connection.</p>
             </div>
 
@@ -190,7 +190,7 @@ export default function SettingsPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: dbConnected ? "#10b981" : "#ef4444", boxShadow: `0 0 6px ${dbConnected ? "#10b981" : "#ef4444"}` }} />
                         <div>
-                            <p style={{ fontSize: "13px", fontWeight: 700, color: "#fff", margin: 0 }}>
+                            <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
                                 {dbConnected ? `Connected — ${dbDialect ?? "PostgreSQL"}` : "No database connected"}
                             </p>
                             <p style={{ fontSize: "11px", color: "#6B7280", margin: "2px 0 0" }}>
@@ -201,7 +201,7 @@ export default function SettingsPage() {
                     <div style={{ display: "flex", gap: "8px" }}>
                         <button onClick={() => setShowConnectModal(true)} type="button" style={{
                             padding: "8px 16px", borderRadius: "8px", fontSize: "12px", fontWeight: 700,
-                            background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", border: "none",
+                            background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "var(--text-primary)", border: "none",
                             cursor: "pointer", boxShadow: "0 4px 12px rgba(99,102,241,0.25)",
                         }}>
                             {dbConnected ? "Update Connection" : "Connect Database"}
@@ -230,7 +230,7 @@ export default function SettingsPage() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
                     <div>
-                        <p style={{ fontSize: "13px", fontWeight: 600, color: "#fff", margin: "0 0 3px" }}>Sign out of all sessions</p>
+                        <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 3px" }}>Sign out of all sessions</p>
                         <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>You will be redirected to the login page.</p>
                     </div>
                     <button onClick={() => signOut({ callbackUrl: "/auth/login" })} type="button" style={{

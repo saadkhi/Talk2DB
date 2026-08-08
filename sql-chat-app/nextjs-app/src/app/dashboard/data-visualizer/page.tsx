@@ -6,7 +6,7 @@ import GuestBanner from "@/components/guest/GuestBanner";
 import { usePageState } from "@/context/PageStateContext";
 import { useGuestGuard } from "@/lib/useGuestGuard";
 
-const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
+const card = { background: "#0d0f1a", border: "1px solid var(--border)", borderRadius: "14px" };
 const lbl  = { fontSize: "10px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase" as const, letterSpacing: "0.08em" };
 
 /* ── 55 Chart types in 7 categories ── */
@@ -171,7 +171,7 @@ export default function DataVisualizerPage() {
             {/* Header */}
             <GuestBanner tool="visualizer" />
             <div>
-                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Data Visualizer</h1>
+                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Data Visualizer</h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Choose a table and chart type, describe what you want — Talk2DB generates the SQL and renders it.</p>
             </div>
 
@@ -264,8 +264,8 @@ export default function DataVisualizerPage() {
                                 placeholder="e.g. Pie chart of male vs female students aged 15, using students table…"
                                 disabled={loading} required rows={4}
                                 style={{
-                                    background: "#080a12", border: "1px solid rgba(255,255,255,0.08)",
-                                    color: "#fff", padding: "14px 16px", borderRadius: "10px",
+                                    background: "var(--bg-base)", border: "1px solid var(--border)",
+                                    color: "var(--text-primary)", padding: "14px 16px", borderRadius: "10px",
                                     fontSize: "13px", fontFamily: "inherit", lineHeight: 1.65,
                                     resize: "vertical", outline: "none", transition: "border-color 0.15s",
                                     width: "100%", boxSizing: "border-box",
@@ -277,7 +277,7 @@ export default function DataVisualizerPage() {
                                 <button type="submit" disabled={loading || !prompt.trim()} style={{
                                     padding: "10px 28px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
                                     background: loading || !prompt.trim() ? "rgba(59,130,246,0.35)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
-                                    color: "#fff", border: "none", cursor: loading || !prompt.trim() ? "not-allowed" : "pointer",
+                                    color: "var(--text-primary)", border: "none", cursor: loading || !prompt.trim() ? "not-allowed" : "pointer",
                                     boxShadow: loading || !prompt.trim() ? "none" : "0 4px 14px rgba(59,130,246,0.3)",
                                     display: "flex", alignItems: "center", gap: "8px",
                                 }}>
@@ -307,7 +307,7 @@ export default function DataVisualizerPage() {
                                     <span>Generated SQL</span>
                                     <svg width="12" height="12" fill="none" stroke="#6366f1" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                                 </summary>
-                                <pre style={{ margin: "12px 0 0", padding: "14px", background: "#080a12", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)", fontSize: "11px", fontFamily: "monospace", color: "#818cf8", overflowX: "auto", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{result.sql}</pre>
+                                <pre style={{ margin: "12px 0 0", padding: "14px", background: "var(--bg-base)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)", fontSize: "11px", fontFamily: "monospace", color: "#818cf8", overflowX: "auto", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{result.sql}</pre>
                             </details>
                             {result.data.length > 0 && (
                                 <div style={{ ...card, padding: "20px 22px" }}>

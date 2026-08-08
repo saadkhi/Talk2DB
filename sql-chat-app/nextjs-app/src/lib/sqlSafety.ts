@@ -136,3 +136,29 @@ export function extractSQL(llmOutput: string): string {
     // Otherwise return as-is, cleaned
     return llmOutput.trim();
 }
+
+export function splitSqlStatements(sql: string): string[] {
+    const results = [];
+    let current = "";
+    let inString = false;
+    for (let i = 0; i < sql.length; i++) {
+        const c = sql[i];
+        if (c === "'") {
+            // Check for escaped quote ''
+            if (i + 1 < sql.length && sql[i + 1] === "'") {
+                current += "''";
+                i++;
+                continue;
+            }
+            inString = !inString;
+        }
+        if (c === ";" && !inString) {
+            if (current.trim()) results.push(current.trim());
+            current = "";
+        } else {
+            current += c;
+        }
+    }
+    if (current.trim()) results.push(current.trim());
+    return results;
+}

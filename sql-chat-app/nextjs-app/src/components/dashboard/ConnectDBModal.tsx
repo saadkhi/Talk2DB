@@ -24,6 +24,7 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
     const [view, setView] = useState<"connect" | "confirm-disconnect">("connect");
     const [disconnecting, setDisconnecting] = useState(false);
     const [disconnectError, setDisconnectError] = useState<string | null>(null);
+    const [hasWriteAccess, setHasWriteAccess] = useState(false);
 
     const handleDisconnect = async () => {
         setDisconnecting(true);
@@ -151,6 +152,7 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
             setSuccess(true);
             setConnectedTableCount(data.tableCount ?? null);
             setConnectedTableNames(data.tableNames ?? []);
+            setHasWriteAccess(data.hasWriteAccess ?? false);
             await checkConnectionStatus();
             setTimeout(() => {
                 onClose();
@@ -299,6 +301,16 @@ export default function ConnectDBModal({ isOpen, onClose }: ConnectDBModalProps)
                                         )}
                                     </div>
                                 </div>
+                                {hasWriteAccess && (
+                                    <div style={{ padding: "10px", marginTop: "10px", background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.3)", borderRadius: "8px" }}>
+                                        <p style={{ fontSize: "12px", color: "#F59E0B", margin: 0, fontWeight: 600 }}>
+                                            ⚠️ Warning: Write Access Detected
+                                        </p>
+                                        <p style={{ fontSize: "11px", color: "#fbbf24", margin: "4px 0 0" }}>
+                                            This connection appears to have INSERT/UPDATE/DELETE privileges. For security, we highly recommend using a Read-Only database role for analysis tools.
+                                        </p>
+                                    </div>
+                                )}
                                 {/* Table name chips */}
                                 {connectedTableNames.length > 0 && (
                                     <div>

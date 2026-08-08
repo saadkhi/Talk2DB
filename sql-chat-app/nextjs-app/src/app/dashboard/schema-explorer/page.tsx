@@ -5,7 +5,7 @@ import { usePageState } from "@/context/PageStateContext";
 import { useGuestGuard } from "@/lib/useGuestGuard";
 import type { TableInfo } from "@/context/PageStateContext";
 
-const card = { background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" };
+const card = { background: "#0d0f1a", border: "1px solid var(--border)", borderRadius: "14px" };
 
 export default function SchemaExplorerPage() {
     const { schemaExplorer: s, setSchemaExplorer: set } = usePageState();
@@ -55,13 +55,13 @@ export default function SchemaExplorerPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1200px", margin: "0 auto", width: "100%" }}>
             <GuestBanner tool="schema" />
             <div>
-                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Schema Explorer</h1>
+                <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>Schema Explorer</h1>
                 <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>Browse tables, columns, constraints and row counts from your connected database.</p>
             </div>
 
             {tables.length === 0 ? (
                 <div style={{ ...card, padding: "48px 24px", textAlign: "center" }}>
-                    <p style={{ fontSize: "15px", fontWeight: 700, color: "#fff", margin: "0 0 6px" }}>No tables found</p>
+                    <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 6px" }}>No tables found</p>
                     <p style={{ fontSize: "12px", color: "#6B7280", margin: 0 }}>Connect a database and make sure it has tables in the public schema.</p>
                 </div>
             ) : (
@@ -73,7 +73,7 @@ export default function SchemaExplorerPage() {
                         </div>
                         <input value={search} onChange={e => setSearch(e.target.value)}
                             placeholder="Filter tables…"
-                            style={{ background: "#080a12", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "7px 12px", fontSize: "12px", color: "#fff", outline: "none", width: "100%", boxSizing: "border-box" }}
+                            style={{ background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: "8px", padding: "7px 12px", fontSize: "12px", color: "var(--text-primary)", outline: "none", width: "100%", boxSizing: "border-box" }}
                         />
                         <div style={{ display: "flex", flexDirection: "column", gap: "3px", maxHeight: "520px", overflowY: "auto" }}>
                             {filtered.map(t => {
@@ -107,7 +107,7 @@ export default function SchemaExplorerPage() {
                         <div style={{ ...card, padding: "22px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexWrap: "wrap", gap: "10px" }}>
                                 <div>
-                                    <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#fff", margin: "0 0 4px", fontFamily: "monospace" }}>{selected.name}</h2>
+                                    <h2 style={{ fontSize: "18px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", fontFamily: "monospace" }}>{selected.name}</h2>
                                     <span style={{ fontSize: "11px", color: "#6366f1", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Table Definition</span>
                                 </div>
                                 <div style={{ display: "flex", gap: "10px" }}>
@@ -137,7 +137,7 @@ export default function SchemaExplorerPage() {
                                                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"}
                                                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
                                             >
-                                                <td style={{ padding: "11px 16px", fontFamily: "monospace", fontWeight: 700, color: "#fff", fontSize: "12px" }}>
+                                                <td style={{ padding: "11px 16px", fontFamily: "monospace", fontWeight: 700, color: "var(--text-primary)", fontSize: "12px" }}>
                                                     {col.isPrimary && <span style={{ marginRight: "6px" }}>🔑</span>}{col.name}
                                                 </td>
                                                 <td style={{ padding: "11px 16px", fontFamily: "monospace", color: "#22d3ee", fontSize: "12px" }}>{col.type}</td>

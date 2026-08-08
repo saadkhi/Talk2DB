@@ -9,6 +9,9 @@ import { useQueryHistory } from "@/context/QueryHistoryContext";
 import { useGuestGuard } from "@/lib/useGuestGuard";
 import { exportCSV, exportExcel } from "@/lib/exportUtils";
 import type { TableInfo, ColumnHint, QueryGuardrail } from "@/context/PageStateContext";
+import dynamic from "next/dynamic";
+
+const PivotTableWrapper = dynamic(() => import("@/components/PivotTableWrapper"), { ssr: false });
 
 /* ── Tiny helpers ───────────────────────────────────────────────────────── */
 function Spinner({ size = 14, color = "#fff" }: { size?: number; color?: string }) {
@@ -24,7 +27,7 @@ function Spinner({ size = 14, color = "#fff" }: { size?: number; color?: string 
 
 const card: React.CSSProperties = {
     background: "#0d0f1a",
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: "1px solid var(--border)",
     borderRadius: "12px",
 };
 
@@ -48,7 +51,7 @@ export default function QueryStudioPage() {
     const {
         tables, loadingSchema, schemaError, tableSearch, selectedTable,
         prompt, generatedSql, editedSql,
-        columns, rows, hasResult, rowError, genError, guardrail,
+        columns, rows, results, hasResult, rowError, genError, guardrail,
     } = s;
 
     const setTables         = (v: TableInfo[])           => set({ tables: v });
@@ -61,6 +64,7 @@ export default function QueryStudioPage() {
     const setEditedSql      = (v: string)                => set({ editedSql: v });
     const setColumns        = (v: string[])              => set({ columns: v });
     const setRows           = (v: any[])                 => set({ rows: v });
+    const setResults        = (v: any[] | undefined)     => set({ results: v });
     const setHasResult      = (v: boolean)               => set({ hasResult: v });
     const setRowError       = (v: string | null)         => set({ rowError: v });
     const setGenError       = (v: string | null)         => set({ genError: v });
@@ -72,9 +76,29 @@ export default function QueryStudioPage() {
     /* transient loading flags */
     const [generating, setGenerating] = useState(false);
     const [running, setRunning] = useState(false);
+    const [resultExplanation, setResultExplanation] = useState<string | null>(null);
+    const [loadingExplanation, setLoadingExplanation] = useState(false);
+    const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
+    const [loadingFollowUps, setLoadingFollowUps] = useState(false);
+    const [isExplainModalOpen, setIsExplainModalOpen] = useState(false);
+    const [explainPlanSummary, setExplainPlanSummary] = useState<string | null>(null);
+    const [explainPlanData, setExplainPlanData] = useState<string | null>(null);
+    const [explainPlanLoading, setExplainPlanLoading] = useState(false);
+
+    /* save query state */
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [saveTitle, setSaveTitle] = useState("");
+    const [saveTags, setSaveTags] = useState("");
+    const [savingQuery, setSavingQuery] = useState(false);
+
+    /* query template state */
+    const [queryParams, setQueryParams] = useState<Record<string, string>>({});
 
     /* auto-retry state */
     const [retrying, setRetrying] = useState(false);
+
+    /* result view tab state */
+    const [activeResultTab, setActiveResultTab] = useState<"data" | "pivot">("data");
 
     /* timeout / elapsed-timer state */
     const [elapsedMs, setElapsedMs] = useState(0);
@@ -129,12 +153,36 @@ export default function QueryStudioPage() {
         if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null; }
     };
 
-    /* ── Cancel in-flight run ───────────────────────────────────────────── */
     const cancelRun = () => {
         abortRef.current?.abort();
         stopTimer();
         setRunning(false);
         setRetrying(false);
+    };
+
+    /* ── Pin to Dashboard ───────────────────────────────────────────────── */
+    const [pinning, setPinning] = useState(false);
+    const handlePinToDashboard = async () => {
+        if (!editedSql.trim()) return;
+        setPinning(true);
+        try {
+            const res = await fetch("/api/dashboard", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: prompt || "Pinned Query",
+                    sqlQuery: editedSql.trim(),
+                    visualType: activeResultTab === "pivot" ? "pivot" : "table",
+                }),
+            });
+            if (!res.ok) throw new Error("Failed to pin");
+            alert("Pinned to Dashboard!");
+        } catch (err: any) {
+            console.error(err);
+            alert("Could not pin to dashboard.");
+        } finally {
+            setPinning(false);
+        }
     };
 
     /* ── Global keyboard shortcuts ──────────────────────────────────────── */
@@ -167,14 +215,23 @@ export default function QueryStudioPage() {
 
     /* ── runSQL — executes SQL, records history, auto-retries on DB error ── */
     const runSQL = useCallback(async (sqlOverride?: string, promptOverride?: string, _retryCount = 0) => {
-        const sql = (sqlOverride ?? editedSql).trim();
+        let sql = (sqlOverride ?? editedSql).trim();
         const activePrompt = promptOverride ?? prompt;
         if (!sql) return;
 
+        // Apply query template parameters
+        const paramRegex = /\{([a-zA-Z0-9_]+)\}/g;
+        sql = sql.replace(paramRegex, (match, paramName) => {
+            return queryParams[paramName] !== undefined && queryParams[paramName] !== "" 
+                ? queryParams[paramName] 
+                : match;
+        });
+
         abortRef.current = new AbortController();
         setRunning(true);
-        setRowError(null); setColumns([]); setRows([]);
+        setRowError(null); setColumns([]); setRows([]); setResults([]);
         setHasResult(false); setGuardrail(null);
+        setResultExplanation(null); setFollowUpQuestions([]);
         startTimer();
         const t0 = Date.now();
 
@@ -234,6 +291,7 @@ export default function QueryStudioPage() {
 
             setColumns(data.columns ?? []);
             setRows(data.rows ?? []);
+            setResults(data.results ?? []);
             setGuardrail(data.guardrail ?? null);
             setHasResult(true);
 
@@ -245,6 +303,31 @@ export default function QueryStudioPage() {
                 execTimeMs, status: "success",
                 ranAt: new Date(),
             });
+
+            // Trigger AI Explanations and Follow-ups
+            if (!isGuest && sql.trim() && (data.rows ?? []).length > 0) {
+                setLoadingExplanation(true);
+                fetch("/api/query/explain-result", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sql, prompt: activePrompt, rows: (data.rows ?? []).slice(0, 5) }),
+                })
+                .then(r => r.json())
+                .then(d => { if (d.explanation) setResultExplanation(d.explanation); })
+                .catch(e => console.error(e))
+                .finally(() => setLoadingExplanation(false));
+
+                setLoadingFollowUps(true);
+                fetch("/api/query/suggest-followups", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sql }),
+                })
+                .then(r => r.json())
+                .then(d => { if (d.suggestions) setFollowUpQuestions(d.suggestions); })
+                .catch(e => console.error(e))
+                .finally(() => setLoadingFollowUps(false));
+            }
         } catch (e: any) {
             stopTimer();
             if (e?.name === "AbortError") return; // user cancelled — no history entry
@@ -293,7 +376,7 @@ export default function QueryStudioPage() {
                 const res = await fetch("/api/query", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ prompt: trimmed }),
+                    body: JSON.stringify({ prompt: trimmed, previousSql: editedSql, previousPrompt: prompt }),
                     signal: AbortSignal.timeout(125000),
                 });
                 const data = await res.json();
@@ -323,6 +406,57 @@ export default function QueryStudioPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleExplainQuery = async () => {
+        if (!editedSql.trim()) return;
+        setIsExplainModalOpen(true);
+        setExplainPlanLoading(true);
+        setExplainPlanData(null);
+        setExplainPlanSummary(null);
+        try {
+            const res = await fetch("/api/query/explain-plan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sql: editedSql }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setExplainPlanData(data.plan);
+                setExplainPlanSummary(data.summary);
+            } else {
+                setExplainPlanSummary(`Error: ${data.error}`);
+            }
+        } catch (e: any) {
+            setExplainPlanSummary(`Error: ${e.message}`);
+        } finally {
+            setExplainPlanLoading(false);
+        }
+    };
+
+    const handleSaveQuery = async () => {
+        if (!saveTitle.trim() || !editedSql.trim()) return;
+        setSavingQuery(true);
+        try {
+            const tags = saveTags.split(",").map(t => t.trim()).filter(Boolean);
+            const res = await fetch("/api/query/saved", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: saveTitle, sql: editedSql, tags }),
+            });
+            if (!res.ok) {
+                const d = await res.json();
+                throw new Error(d.error);
+            }
+            setIsSaveModalOpen(false);
+            setSaveTitle("");
+            setSaveTags("");
+            alert("Query saved to library!");
+        } catch (e: any) {
+            alert(e.message || "Failed to save query");
+        } finally {
+            setSavingQuery(false);
+        }
+    };
+
     /* Re-run handler called from the history drawer */
     const handleRerun = (sql: string, p: string) => {
         setEditedSql(sql);
@@ -350,7 +484,7 @@ export default function QueryStudioPage() {
             {/* ── Page header ── */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
                 <div>
-                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "0 0 4px", letterSpacing: "-0.03em" }}>
+                    <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-primary)", margin: "0 0 4px", letterSpacing: "-0.03em" }}>
                         Query Studio
                     </h1>
                     <p style={{ fontSize: "13px", color: "#6B7280", margin: 0 }}>
@@ -403,9 +537,9 @@ export default function QueryStudioPage() {
                         onChange={e => setTableSearch(e.target.value)}
                         placeholder="Search…"
                         style={{
-                            background: "#080a12", border: "1px solid rgba(255,255,255,0.08)",
+                            background: "var(--bg-base)", border: "1px solid var(--border)",
                             borderRadius: "8px", padding: "7px 10px",
-                            fontSize: "12px", color: "#fff", outline: "none",
+                            fontSize: "12px", color: "var(--text-primary)", outline: "none",
                             width: "100%", boxSizing: "border-box",
                         }}
                     />
@@ -503,7 +637,7 @@ export default function QueryStudioPage() {
                                     style={{
                                         padding: "11px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
                                         background: (generating || !prompt.trim()) ? "rgba(99,102,241,0.3)" : "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                                        color: "#fff", border: "none",
+                                        color: "var(--text-primary)", border: "none",
                                         cursor: (generating || !prompt.trim()) ? "not-allowed" : "pointer",
                                         boxShadow: (generating || !prompt.trim()) ? "none" : "0 4px 14px rgba(99,102,241,0.3)",
                                         display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
@@ -536,7 +670,7 @@ export default function QueryStudioPage() {
                                 <div style={{ display: "flex", gap: "6px" }}>
                                     {isDirty && (
                                         <button onClick={() => setEditedSql(generatedSql)}
-                                            style={{ fontSize: "11px", fontWeight: 600, padding: "4px 10px", borderRadius: "7px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#9CA3AF", cursor: "pointer" }}>↺ Reset</button>
+                                            style={{ fontSize: "11px", fontWeight: 600, padding: "4px 10px", borderRadius: "7px", background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--text-secondary)", cursor: "pointer" }}>↺ Reset</button>
                                     )}
                                     <button onClick={handleCopy} disabled={!editedSql}
                                         style={{ fontSize: "11px", fontWeight: 600, padding: "4px 10px", borderRadius: "7px", background: copied ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.04)", border: copied ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(255,255,255,0.08)", color: copied ? "#34d399" : "#9CA3AF", cursor: editedSql ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: "4px" }}>
@@ -547,11 +681,27 @@ export default function QueryStudioPage() {
 
                             {/* SQL editor */}
                             {generating ? (
-                                <div style={{ flex: 1, minHeight: 130, borderRadius: "10px", background: "#080a12", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", color: "#4B5563", fontSize: "12px" }}>
+                                <div style={{ flex: 1, minHeight: 130, borderRadius: "10px", background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", color: "#4B5563", fontSize: "12px" }}>
                                     <Spinner size={18} color="#818cf8" />Waiting for AI response…
                                 </div>
                             ) : (
-                                <div style={{ flex: 1 }}>
+                                <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                                    {Array.from(new Set(Array.from(editedSql.matchAll(/\{([a-zA-Z0-9_]+)\}/g)).map(m => m[1]))).length > 0 && (
+                                        <div style={{ background: "rgba(99,102,241,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "12px 20px", display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
+                                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#818cf8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Parameters</span>
+                                            {Array.from(new Set(Array.from(editedSql.matchAll(/\{([a-zA-Z0-9_]+)\}/g)).map(m => m[1]))).map(param => (
+                                                <div key={param} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                    <label style={{ fontSize: "12px", color: "#D1D5DB" }}>{param}</label>
+                                                    <input 
+                                                        value={queryParams[param] || ""}
+                                                        onChange={e => setQueryParams(prev => ({ ...prev, [param]: e.target.value }))}
+                                                        placeholder="value"
+                                                        style={{ background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "6px", padding: "4px 8px", color: "var(--text-primary)", fontSize: "12px", outline: "none", width: "100px" }}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                     <SQLEditor value={editedSql} onChange={setEditedSql}
                                         placeholder="SQL will appear here — or click a table on the left to auto-fill."
                                         disabled={running} minHeight={130} />
@@ -582,21 +732,48 @@ export default function QueryStudioPage() {
                                         </button>
                                     </>
                                 ) : (
-                                    <button onClick={() => runSQL()} disabled={!editedSql.trim()}
-                                        style={{
-                                            flex: 1, padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 700,
-                                            background: !editedSql.trim() ? "rgba(16,185,129,0.25)" : "linear-gradient(135deg,#10b981,#059669)",
-                                            color: "#fff", border: "none",
-                                            cursor: !editedSql.trim() ? "not-allowed" : "pointer",
-                                            boxShadow: !editedSql.trim() ? "none" : "0 4px 14px rgba(16,185,129,0.3)",
-                                            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                                        }}
-                                        onMouseEnter={e => { if (editedSql.trim()) (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
-                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
-                                    >
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                                        Run Query
-                                    </button>
+                                    <>
+                                        <button onClick={() => runSQL()} disabled={!editedSql.trim()}
+                                            style={{
+                                                flex: 1, padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 700,
+                                                background: !editedSql.trim() ? "rgba(16,185,129,0.25)" : "linear-gradient(135deg,#10b981,#059669)",
+                                                color: "var(--text-primary)", border: "none",
+                                                cursor: !editedSql.trim() ? "not-allowed" : "pointer",
+                                                boxShadow: !editedSql.trim() ? "none" : "0 4px 14px rgba(16,185,129,0.3)",
+                                                display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                                            }}
+                                            onMouseEnter={e => { if (editedSql.trim()) (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
+                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.filter = "none"}
+                                        >
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                                            Run Query
+                                        </button>
+                                        <button onClick={handleExplainQuery} disabled={!editedSql.trim()}
+                                            style={{
+                                                padding: "12px 16px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
+                                                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                                                color: "var(--text-primary)", cursor: !editedSql.trim() ? "not-allowed" : "pointer",
+                                                display: "flex", alignItems: "center", gap: "6px", flexShrink: 0
+                                            }}
+                                            onMouseEnter={e => { if (editedSql.trim()) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; }}
+                                            onMouseLeave={e => { if (editedSql.trim()) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+                                        >
+                                            Explain
+                                        </button>
+                                        <button onClick={() => setIsSaveModalOpen(true)} disabled={!editedSql.trim()}
+                                            style={{
+                                                padding: "12px 16px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
+                                                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                                                color: "var(--text-primary)", cursor: !editedSql.trim() ? "not-allowed" : "pointer",
+                                                display: "flex", alignItems: "center", gap: "6px", flexShrink: 0
+                                            }}
+                                            onMouseEnter={e => { if (editedSql.trim()) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; }}
+                                            onMouseLeave={e => { if (editedSql.trim()) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+                                        >
+                                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
+                                            Save
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -616,7 +793,7 @@ export default function QueryStudioPage() {
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexWrap: "wrap", gap: "8px" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                             <span style={labelStyle}>Results</span>
-                                            {selectedTable && <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff", fontFamily: "monospace" }}>{selectedTable.name}</span>}
+                                            {selectedTable && <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace" }}>{selectedTable.name}</span>}
                                         </div>
                                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                             <span style={{ fontSize: "11px", color: "#34d399", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: "20px", padding: "3px 10px", fontWeight: 700 }}>
@@ -638,6 +815,15 @@ export default function QueryStudioPage() {
                                                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.15)"}
                                                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.08)"}
                                                     >↓ Excel</button>
+                                                    <button onClick={handlePinToDashboard}
+                                                        disabled={pinning}
+                                                        title="Pin to Dashboard"
+                                                        style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 10px", borderRadius: "7px", fontSize: "11px", fontWeight: 600, background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", color: "#c4b5fd", cursor: pinning ? "not-allowed" : "pointer" }}
+                                                        onMouseEnter={e => { if (!pinning) (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.15)"; }}
+                                                        onMouseLeave={e => { if (!pinning) (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.08)"; }}
+                                                    >
+                                                        {pinning ? "…" : "📌 Pin"}
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
@@ -664,7 +850,7 @@ export default function QueryStudioPage() {
                                                                 <div key={hint.column} style={{ background: "rgba(0,0,0,0.25)", borderRadius: "10px", padding: "12px 14px", display: "flex", flexDirection: "column", gap: "10px" }}>
                                                                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                                                                         <code style={{ fontSize: "11px", fontFamily: "monospace", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 8px", borderRadius: "5px" }}>{hint.column}</code>
-                                                                        <span style={{ fontSize: "12px", color: "#9CA3AF" }}>was filtered by</span>
+                                                                        <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>was filtered by</span>
                                                                         <code style={{ fontSize: "11px", fontFamily: "monospace", background: "rgba(239,68,68,0.12)", color: "#fca5a5", padding: "2px 8px", borderRadius: "5px", textDecoration: "line-through" }}>'{hint.queriedValue}'</code>
                                                                     </div>
                                                                     {hint.suggestions.length > 0 && (
@@ -686,7 +872,7 @@ export default function QueryStudioPage() {
                                                                             <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
                                                                                 {hint.actualValues.map(v => (
                                                                                     <button key={v} onClick={() => applySuggestion(hint, v)} disabled={running}
-                                                                                        style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#9CA3AF", cursor: "pointer", fontFamily: "monospace" }}>
+                                                                                        style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "11px", background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--text-secondary)", cursor: "pointer", fontFamily: "monospace" }}>
                                                                                         {v}
                                                                                     </button>
                                                                                 ))}
@@ -709,7 +895,98 @@ export default function QueryStudioPage() {
                                                 )}
                                             </div>
                                         ) : (
-                                            <DataTable columns={columns} rows={rows} pageSize={25} exportFilename={exportStem} />
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                                {loadingExplanation ? (
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#6366f1", fontSize: "13px" }}>
+                                                        <Spinner size={14} color="#6366f1" /> Analyzing results…
+                                                    </div>
+                                                ) : resultExplanation ? (
+                                                    <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: "10px", padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                                                        <svg width="16" height="16" fill="none" stroke="#818cf8" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: "2px" }}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                                                        <div>
+                                                            <p style={{ fontSize: "12px", fontWeight: 700, color: "#a5b4fc", margin: "0 0 4px" }}>AI Summary</p>
+                                                            <p style={{ fontSize: "13px", color: "#E5E7EB", margin: 0, lineHeight: 1.5 }}>{resultExplanation}</p>
+                                                        </div>
+                                                    </div>
+                                                    </div>
+                                                ) : null}
+
+                                                <div style={{ display: "flex", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
+                                                    <button 
+                                                        onClick={() => setActiveResultTab("data")} 
+                                                        style={{ 
+                                                            background: activeResultTab === "data" ? "rgba(99,102,241,0.15)" : "transparent",
+                                                            border: "none",
+                                                            color: activeResultTab === "data" ? "#818cf8" : "#9CA3AF",
+                                                            padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s"
+                                                        }}
+                                                    >
+                                                        Data Table
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setActiveResultTab("pivot")} 
+                                                        style={{ 
+                                                            background: activeResultTab === "pivot" ? "rgba(99,102,241,0.15)" : "transparent",
+                                                            border: "none",
+                                                            color: activeResultTab === "pivot" ? "#818cf8" : "#9CA3AF",
+                                                            padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 600, cursor: "pointer", transition: "all 0.15s"
+                                                        }}
+                                                    >
+                                                        Pivot Table
+                                                    </button>
+                                                </div>
+
+                                                {activeResultTab === "data" ? (
+                                                    (results && results.length > 1) ? (
+                                                        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                                                            {results.map((res, i) => (
+                                                                <div key={i} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                                                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#818cf8", background: "rgba(99,102,241,0.1)", padding: "4px 8px", borderRadius: "4px", alignSelf: "flex-start" }}>
+                                                                        Result Set {i + 1}
+                                                                    </div>
+                                                                    <DataTable columns={res.columns} rows={res.rows} pageSize={25} exportFilename={`${exportStem}_set${i+1}`} />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <DataTable columns={columns} rows={rows} pageSize={25} exportFilename={exportStem} />
+                                                    )
+                                                ) : (
+                                                    <PivotTableWrapper data={rows} />
+                                                )}
+
+                                                {/* Follow-up Questions */}
+                                                {(followUpQuestions.length > 0 || loadingFollowUps) && (
+                                                    <div style={{ marginTop: "10px" }}>
+                                                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#6B7280", margin: "0 0 8px" }}>Suggested Follow-ups</p>
+                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                                                            {loadingFollowUps ? (
+                                                                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#4B5563", fontSize: "12px" }}>
+                                                                    <Spinner size={12} color="#4B5563" /> Generating suggestions…
+                                                                </div>
+                                                            ) : followUpQuestions.map((q, idx) => (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => {
+                                                                        setPrompt(q);
+                                                                        generateSQL(q);
+                                                                        window.scrollTo({ top: 0, behavior: "smooth" });
+                                                                    }}
+                                                                    style={{
+                                                                        padding: "8px 14px", borderRadius: "20px", fontSize: "12px",
+                                                                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                                                                        color: "#D1D5DB", cursor: "pointer", transition: "all 0.15s"
+                                                                    }}
+                                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"}
+                                                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"}
+                                                                >
+                                                                    ✨ {q}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -725,6 +1002,75 @@ export default function QueryStudioPage() {
                 onClose={() => setHistoryOpen(false)}
                 onRerun={handleRerun}
             />
+
+            {/* Explain Plan Modal */}
+            {isExplainModalOpen && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}>
+                    <div style={{ background: "#0f111a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", width: "100%", maxWidth: "800px", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" }}>Query Execution Plan</h3>
+                            <button onClick={() => setIsExplainModalOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "18px" }}>×</button>
+                        </div>
+                        <div style={{ padding: "20px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "20px" }}>
+                            {explainPlanLoading ? (
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "40px", color: "var(--text-secondary)", fontSize: "14px" }}>
+                                    <Spinner size={24} color="#6366f1" /> Analyzing query plan…
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: "10px", padding: "16px" }}>
+                                        <h4 style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: "#a5b4fc" }}>AI Summary</h4>
+                                        <p style={{ margin: 0, fontSize: "13px", color: "#E5E7EB", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{explainPlanSummary}</p>
+                                    </div>
+                                    <div>
+                                        <h4 style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: "var(--text-secondary)" }}>Raw Output</h4>
+                                        <pre style={{ margin: 0, padding: "16px", background: "#000", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", fontSize: "12px", color: "#34d399", overflowX: "auto", fontFamily: "monospace" }}>
+                                            {explainPlanData}
+                                        </pre>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "flex-end" }}>
+                            <button onClick={() => setIsExplainModalOpen(false)} style={{ padding: "8px 16px", borderRadius: "8px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-primary)", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Save Query Modal */}
+            {isSaveModalOpen && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}>
+                    <div style={{ background: "#0f111a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", width: "100%", maxWidth: "500px", display: "flex", flexDirection: "column", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" }}>Save Query</h3>
+                            <button onClick={() => setIsSaveModalOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "18px" }}>×</button>
+                        </div>
+                        <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                            <div>
+                                <label style={{ ...labelStyle, display: "block", marginBottom: "6px" }}>Title</label>
+                                <input value={saveTitle} onChange={e => setSaveTitle(e.target.value)} placeholder="e.g. Monthly Revenue by Region" autoFocus
+                                    style={{ width: "100%", background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", padding: "10px", color: "var(--text-primary)", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ ...labelStyle, display: "block", marginBottom: "6px" }}>Tags (comma separated)</label>
+                                <input value={saveTags} onChange={e => setSaveTags(e.target.value)} placeholder="e.g. sales, revenue, monthly"
+                                    style={{ width: "100%", background: "var(--bg-base)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", padding: "10px", color: "var(--text-primary)", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                                />
+                            </div>
+                        </div>
+                        <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                            <button onClick={() => setIsSaveModalOpen(false)} style={{ padding: "8px 16px", borderRadius: "8px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-primary)", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>Cancel</button>
+                            <button onClick={handleSaveQuery} disabled={!saveTitle.trim() || savingQuery}
+                                style={{ padding: "8px 16px", borderRadius: "8px", background: "#6366f1", border: "none", color: "var(--text-primary)", cursor: (!saveTitle.trim() || savingQuery) ? "not-allowed" : "pointer", fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}
+                            >
+                                {savingQuery ? <Spinner size={12} /> : null} Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style>{`
                 @keyframes spin    { to { transform: rotate(360deg); } }

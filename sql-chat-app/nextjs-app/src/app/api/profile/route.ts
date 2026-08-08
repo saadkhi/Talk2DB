@@ -54,6 +54,7 @@ export async function POST(req: Request) {
                 const distinctCount = parseInt(distinctResult.rows[0].distinct_count);
 
                 let stats: any = { nullCount, nullPct, distinctCount };
+                const anomalies: string[] = [];
 
                 // Analyze specific data types
                 const numericTypes = ["integer", "bigint", "numeric", "real", "double precision", "smallint", "decimal"];
@@ -68,6 +69,22 @@ export async function POST(req: Request) {
                             max: numResult.rows[0].max != null ? Number(numResult.rows[0].max) : null,
                             avg: numResult.rows[0].avg != null ? Number(numResult.rows[0].avg) : null,
                         };
+
+                        // Outlier Detection (Z-Score)
+                        const stddevResult = await pool.query(
+                            `SELECT STDDEV("${column_name}") as stddev FROM "${tableName}"`
+                        );
+                        const stddev = stddevResult.rows[0].stddev != null ? Number(stddevResult.rows[0].stddev) : null;
+                        if (stddev != null && stddev > 0 && stats.avg != null) {
+                            const outliersResult = await pool.query(
+                                `SELECT COUNT(*) as count FROM "${tableName}" WHERE "${column_name}" IS NOT NULL AND ABS("${column_name}" - $1) / $2 > 3`,
+                                [stats.avg, stddev]
+                            );
+                            const outliersCount = parseInt(outliersResult.rows[0].count);
+                            if (outliersCount > 0) {
+                                anomalies.push(`Statistical Outliers: ${outliersCount} value(s) exceed Z-Score of 3`);
+                            }
+                        }
                     } catch (eNum) {
                         if (process.env.NODE_ENV !== 'production') {
                             console.warn(`Numeric profiling statistical calculation failed for ${column_name}:`, eNum);
@@ -115,7 +132,6 @@ export async function POST(req: Request) {
                 }
 
                 // Auto anomaly flags detection
-                const anomalies: string[] = [];
                 if (nullPct > 50) {
                     anomalies.push("High Null Percentage (>50%)");
                 }

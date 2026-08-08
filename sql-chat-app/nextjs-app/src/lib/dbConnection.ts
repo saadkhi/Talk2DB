@@ -91,3 +91,38 @@ export async function executeQuery(
     const columns = result.fields.map((f) => f.name);
     return { columns, rows: result.rows };
 }
+
+export async function executeMultiQuery(
+    encryptedConnectionString: string,
+    sql: string
+): Promise<{ columns: string[]; rows: any[] }[]> {
+    const connectionString = decrypt(encryptedConnectionString);
+
+    const toResultArray = (result: any) => {
+        if (Array.isArray(result)) {
+            return result.map((r: any) => ({ columns: r.fields.map((f: any) => f.name), rows: r.rows }));
+        } else {
+            return [{ columns: result.fields.map((f: any) => f.name), rows: result.rows }];
+        }
+    };
+
+    if (isNeonUrl(connectionString)) {
+        const client = new Client({
+            connectionString,
+            ssl: { rejectUnauthorized: false },
+            connectionTimeoutMillis: 10000,
+            statement_timeout: 30000,
+        });
+        try {
+            await client.connect();
+            const result = await client.query(sql);
+            return toResultArray(result);
+        } finally {
+            await client.end().catch(() => {});
+        }
+    }
+
+    const pool = await getUserDbPool(encryptedConnectionString);
+    const result = await pool.query(sql);
+    return toResultArray(result);
+}
