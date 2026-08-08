@@ -9,21 +9,19 @@ import type { Session } from "next-auth";
 async function resolveUser(session: Session) {
     const tokenId = (session.user as any).id as string | undefined;
 
-    // Try by id first
     if (tokenId) {
         const user = await prisma.user.findUnique({
             where: { id: tokenId },
-            select: { id: true, name: true, email: true, dbConnectionString: true, dbDialect: true, password: true },
+            select: { id: true, name: true, email: true, password: true },
         });
         if (user) return user;
     }
 
-    // Fallback: look up by email
     const email = session.user?.email;
     if (email) {
         return prisma.user.findUnique({
             where: { email },
-            select: { id: true, name: true, email: true, dbConnectionString: true, dbDialect: true, password: true },
+            select: { id: true, name: true, email: true, password: true },
         });
     }
 
@@ -40,13 +38,10 @@ export async function GET() {
         const user = await resolveUser(session);
 
         if (!user) {
-            // Session exists but no DB row yet (e.g. OAuth race condition)
             return NextResponse.json({
                 id: (session.user as any).id ?? null,
                 name: session.user.name ?? null,
                 email: session.user.email ?? null,
-                dbConnectionString: null,
-                dbDialect: null,
             });
         }
 
@@ -54,9 +49,6 @@ export async function GET() {
             id: user.id,
             name: user.name,
             email: user.email,
-            // Never expose the encrypted value — just signal presence
-            dbConnectionString: user.dbConnectionString ? "[ENCRYPTED_CONNECTION_STRING]" : null,
-            dbDialect: user.dbDialect,
         });
     } catch (error: any) {
         if (process.env.NODE_ENV !== "production") console.error("Profile GET error:", error);

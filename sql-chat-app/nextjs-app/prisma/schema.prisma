@@ -22,6 +22,11 @@ model User {
   auditLogs             AuditLog[]
   accounts              Account[]
   sessions              Session[]
+  // Phase 6
+  llmUsage              LlmUsage[]
+  teamMemberships       TeamMember[]
+  teamQueries           TeamQuery[]    @relation("TeamQueryAuthor")
+  teamDashboardItems    TeamDashboardItem[] @relation("TeamDashboardAuthor")
 }
 
 model DbConnection {
@@ -137,4 +142,107 @@ model AuditLog {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// ── LLM Usage tracking (Phase 6.6) ────────────────────────────────────────────
+// One row per LLM call. Used for per-user usage metering and billing prep.
+model LlmUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  /// Which provider was used: "openrouter" | "gemini" | "openai" | "anthropic"
+  provider     String
+  /// The model name actually called (e.g. "gemini-1.5-flash")
+  model        String
+  /// Rough token estimate for the prompt (characters / 4)
+  promptTokens Int      @default(0)
+  /// Source feature: "chat" | "query" | "report" | "visualize" | "profile" etc.
+  source       String
+  /// Whether the LLM call succeeded
+  success      Boolean
+  /// Wall-clock time for the call in ms
+  durationMs   Int?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ── Team / Workspace (Phase 6.1) ──────────────────────────────────────────────
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  members     TeamMember[]
+  teamDbs     TeamDb[]
+  sharedQueries TeamQuery[]
+  sharedDashboards TeamDashboardItem[]
+
+  @@index([slug])
+}
+
+// Role values: "owner" | "editor" | "viewer"
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("viewer")
+  joinedAt  DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+// Shared database connections visible to the whole team
+model TeamDb {
+  id                 String   @id @default(cuid())
+  teamId             String
+  name               String
+  dbConnectionString String   // AES-256 encrypted
+  dbDialect          String   @default("postgresql")
+  createdAt          DateTime @default(now())
+  team               Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+}
+
+// Shared query library (Phase 6.2)
+model TeamQuery {
+  id          String   @id @default(cuid())
+  teamId      String
+  authorId    String
+  title       String
+  sql         String
+  tags        String[]
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author      User     @relation("TeamQueryAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([authorId])
+}
+
+// Shared dashboards (Phase 6.3)
+model TeamDashboardItem {
+  id        String   @id @default(cuid())
+  teamId    String
+  authorId  String
+  title     String
+  type      String   // "chart" | "metric" | "table"
+  sql       String
+  config    String?  // JSON string
+  pinned    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author    User     @relation("TeamDashboardAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
 }

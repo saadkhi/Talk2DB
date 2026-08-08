@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "@/lib/prisma";
+import { resolveUserId } from "@/lib/resolveUser";
 
 export async function GET() {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const userId = await resolveUserId(session);
+        if (!userId) return NextResponse.json({ error: "User not found" }, { status: 400 });
+
         const queries = await prisma.savedQuery.findMany({
-            where: { userId: session.user.id },
-            orderBy: { createdAt: 'desc' }
+            where: { userId },
+            orderBy: { createdAt: "desc" },
         });
 
         return NextResponse.json(queries);
@@ -26,9 +28,12 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const userId = await resolveUserId(session);
+        if (!userId) return NextResponse.json({ error: "User not found" }, { status: 400 });
 
         const { title, sql, tags } = await req.json();
         if (!title || !sql) {
@@ -36,12 +41,7 @@ export async function POST(req: Request) {
         }
 
         const savedQuery = await prisma.savedQuery.create({
-            data: {
-                userId: session.user.id,
-                title,
-                sql,
-                tags: tags || []
-            }
+            data: { userId, title, sql, tags: tags || [] },
         });
 
         return NextResponse.json(savedQuery);

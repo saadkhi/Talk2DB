@@ -10,6 +10,7 @@ interface SavedReport {
     chartType: string | null;
     summary: string | null;
     insights: string[];
+    schedule?: string | null;
     createdAt: string;
 }
 
@@ -48,13 +49,13 @@ export default function SavedQueriesPage() {
                 fetch("/api/report/save"),
                 fetch("/api/query/saved")
             ]);
-            
+
             const reportsData = await reportsRes.json();
             const queriesData = await queriesRes.json();
-            
+
             if (!reportsRes.ok) throw new Error(reportsData.error || "Failed to load reports");
             if (!queriesRes.ok) throw new Error(queriesData.error || "Failed to load queries");
-            
+
             setReports(reportsData);
             setQueries(queriesData);
         } catch (e: any) {
@@ -129,9 +130,9 @@ export default function SavedQueriesPage() {
 
             {/* Tabs */}
             <div style={{ display: "flex", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "10px" }}>
-                <button 
-                    onClick={() => setActiveTab("queries")} 
-                    style={{ 
+                <button
+                    onClick={() => setActiveTab("queries")}
+                    style={{
                         background: activeTab === "queries" ? "rgba(99,102,241,0.15)" : "transparent",
                         border: "1px solid",
                         borderColor: activeTab === "queries" ? "rgba(99,102,241,0.3)" : "transparent",
@@ -141,9 +142,9 @@ export default function SavedQueriesPage() {
                 >
                     Saved Queries
                 </button>
-                <button 
-                    onClick={() => setActiveTab("reports")} 
-                    style={{ 
+                <button
+                    onClick={() => setActiveTab("reports")}
+                    style={{
                         background: activeTab === "reports" ? "rgba(99,102,241,0.15)" : "transparent",
                         border: "1px solid",
                         borderColor: activeTab === "reports" ? "rgba(99,102,241,0.3)" : "transparent",
@@ -181,7 +182,7 @@ export default function SavedQueriesPage() {
                     </Link>
                 </div>
             )}
-            
+
             {!loading && !error && activeTab === "queries" && queries.length === 0 && (
                 <div style={{ background: "#0d0f1a", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "14px", padding: "48px 24px", textAlign: "center" }}>
                     <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
@@ -242,7 +243,7 @@ export default function SavedQueriesPage() {
                     {/* Expanded details */}
                     {expanded === report.id && (
                         <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "18px 20px", display: "flex", flexDirection: "column", gap: "16px" }}>
-                            
+
                             <div style={{ background: "rgba(16,185,129,0.05)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: "10px", padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div>
                                     <p style={{ fontSize: "10px", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>Schedule (Email)</p>
@@ -306,7 +307,7 @@ export default function SavedQueriesPage() {
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
                             <span style={{ fontSize: "11px", color: "#374151", whiteSpace: "nowrap" }}>{timeAgo(query.createdAt)}</span>
-                            
+
                             <Link href={`/dashboard/query-studio?sql=${encodeURIComponent(query.sql)}`}
                                 style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", color: "#818cf8", borderRadius: "7px", padding: "5px 12px", fontSize: "11px", fontWeight: 600, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
                             >

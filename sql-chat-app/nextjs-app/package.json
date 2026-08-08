@@ -17,6 +17,7 @@
     "@tailwindcss/postcss": "^4.3.2",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^6.0.9",
     "lucide-react": "^1.30.0",
     "next": "16.2.4",
     "next-auth": "^4.24.14",
@@ -30,6 +31,7 @@
     "react-pivottable": "^0.11.1",
     "react-plotly.js": "^4.1.0",
     "recharts": "^3.8.1",
+    "resend": "^6.4.2",
     "tailwindcss": "^4.3.2"
   },
   "devDependencies": {

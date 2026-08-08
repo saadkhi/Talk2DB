@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GitHubProvider from "next-auth/providers/github";
+import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "./prisma";
 import bcrypt from "bcryptjs";
@@ -24,6 +25,23 @@ export const authOptions: NextAuthOptions = {
               ]
             : []),
 
+        // Google OAuth — only registers when keys are configured (Phase 6.5)
+        ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+            ? [
+                  GoogleProvider({
+                      clientId: process.env.GOOGLE_CLIENT_ID,
+                      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+                      authorization: {
+                          params: {
+                              // Request offline access so we can refresh tokens
+                              access_type: "offline",
+                              prompt: "select_account",
+                          },
+                      },
+                  }),
+              ]
+            : []),
+
         CredentialsProvider({
             name: "credentials",
             credentials: {
@@ -41,10 +59,12 @@ export const authOptions: NextAuthOptions = {
         }),
     ],
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, account }) {
             // On first sign-in, `user` is populated — store the DB id in the token
             if (user?.id) {
                 token.id = user.id;
+                // Store OAuth provider info for display in settings
+                if (account?.provider) token.provider = account.provider;
                 return token;
             }
             // On subsequent requests, `user` is undefined.
@@ -66,7 +86,10 @@ export const authOptions: NextAuthOptions = {
             return token;
         },
         async session({ session, token }) {
-            if (session.user) (session.user as any).id = token.id;
+            if (session.user) {
+                (session.user as any).id = token.id;
+                (session.user as any).provider = token.provider;
+            }
             return session;
         },
     },

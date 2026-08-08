@@ -211,9 +211,18 @@ function getProviderOrder(): LLMProvider[] {
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
+/**
+ * callLLM — call the best configured LLM provider with automatic fallback.
+ *
+ * @param systemPrompt  System/instruction prompt
+ * @param userMessage   User message / query
+ * @param opts.userId   When provided, a LlmUsage row is written for billing tracking (Phase 6.6)
+ * @param opts.source   Feature tag e.g. "chat" | "query" | "report" (default: "unknown")
+ */
 export async function callLLM(
     systemPrompt: string,
-    userMessage: string
+    userMessage: string,
+    opts?: { userId?: string; source?: string }
 ): Promise<string> {
     const providers = getProviderOrder();
 
@@ -224,15 +233,41 @@ export async function callLLM(
     }
 
     const errors: string[] = [];
+    const source = opts?.source ?? "unknown";
 
     for (const provider of providers) {
+        const t0 = Date.now();
         try {
             const result = await provider.call(systemPrompt, userMessage);
+            const durationMs = Date.now() - t0;
+            if (opts?.userId) {
+                void recordLlmUsage({
+                    userId: opts.userId,
+                    provider: provider.name.toLowerCase(),
+                    model: getActiveModelName(provider.name),
+                    promptTokens: estimateTokens(systemPrompt + userMessage),
+                    source,
+                    success: true,
+                    durationMs,
+                });
+            }
             return result;
         } catch (e) {
+            const durationMs = Date.now() - t0;
             const msg = `[${provider.name}] ${(e as Error).message}`;
             errors.push(msg);
             console.error("[LLM]", msg);
+            if (opts?.userId) {
+                void recordLlmUsage({
+                    userId: opts.userId,
+                    provider: provider.name.toLowerCase(),
+                    model: getActiveModelName(provider.name),
+                    promptTokens: estimateTokens(systemPrompt + userMessage),
+                    source,
+                    success: false,
+                    durationMs,
+                });
+            }
             // Continue to next provider
         }
     }
@@ -241,6 +276,44 @@ export async function callLLM(
     throw new Error(
         `AI service unavailable. All providers failed:\n${errors.join("\n")}`
     );
+}
+
+// ── Usage helpers (Phase 6.6) ──────────────────────────────────────────────
+
+/** Rough token estimate: ~4 chars per token */
+function estimateTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+}
+
+/** Return the model name that would be used for a given provider */
+function getActiveModelName(providerName: string): string {
+    const lower = providerName.toLowerCase();
+    if (lower === "openrouter") return process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b:free";
+    if (lower === "gemini") return process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    if (lower === "openai") return process.env.OPENAI_MODEL || "gpt-4o-mini";
+    if (lower === "anthropic") return process.env.ANTHROPIC_MODEL || "claude-3-haiku-20240307";
+    return "unknown";
+}
+
+/**
+ * Write a LlmUsage row asynchronously. Errors are swallowed — tracking must
+ * never fail a user-facing request.
+ */
+async function recordLlmUsage(data: {
+    userId: string;
+    provider: string;
+    model: string;
+    promptTokens: number;
+    source: string;
+    success: boolean;
+    durationMs: number;
+}): Promise<void> {
+    try {
+        const { default: prisma } = await import("./prisma");
+        await (prisma as any).llmUsage.create({ data });
+    } catch {
+        // Best-effort — never block the user response
+    }
 }
 
 // Keep this export for the few places that call OpenRouter directly

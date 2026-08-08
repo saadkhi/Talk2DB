@@ -908,7 +908,6 @@ export default function QueryStudioPage() {
                                                             <p style={{ fontSize: "13px", color: "#E5E7EB", margin: 0, lineHeight: 1.5 }}>{resultExplanation}</p>
                                                         </div>
                                                     </div>
-                                                    </div>
                                                 ) : null}
 
                                                 <div style={{ display: "flex", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>

@@ -38,7 +38,7 @@ export async function resolveUserWithDb(session: Session, connectionId?: string 
     let finalConnectionId = connectionId;
 
     if (!finalConnectionId) {
-        const cookieStore = cookies();
+        const cookieStore = await cookies();
         finalConnectionId = cookieStore.get("talk2db_active_connection")?.value;
     }
 

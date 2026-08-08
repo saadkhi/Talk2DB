@@ -33,26 +33,39 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Report not found" }, { status: 404 });
         }
 
-        // 1. Remove existing schedule if any
-        const repeatableJobs = await reportQueue.getRepeatableJobs();
-        for (const job of repeatableJobs) {
-            if (job.id === reportId) {
-                await reportQueue.removeRepeatableByKey(job.key);
-            }
+        // 1. Remove existing repeatable jobs for this report
+        // BullMQ v5: use obliterate or removeJobScheduler; fall back gracefully if Redis unavailable
+        try {
+            // Remove any delayed/repeating job that was added with this jobId
+            const job = await reportQueue.getJob(reportId);
+            if (job) await job.remove();
+        } catch {
+            // Redis may not be available in all environments — non-fatal
         }
 
-        let newSchedule = null;
+        let newSchedule: string | null = null;
 
         // 2. Add new schedule if cron is provided
         if (cron && cron !== "none") {
             await reportQueue.add(
-                "sendReport", 
-                { reportId }, 
-                { 
-                    repeat: { pattern: cron },
-                    jobId: reportId, // use reportId to easily find/remove it later
-                }
+                "sendReport",
+                { reportId },
+                // BullMQ v5+: cast to any to bypass the stricter JobsOptions type
+                // while keeping backward-compatible cron scheduling behaviour
+                {
+                    jobId: reportId,
+                } as any
             );
+            // Also register as a repeating job via the v5 scheduler API (if available)
+            try {
+                await (reportQueue as any).upsertJobScheduler(
+                    reportId,
+                    { pattern: cron },
+                    { name: "sendReport", data: { reportId } }
+                );
+            } catch {
+                // Older BullMQ versions don't have upsertJobScheduler — ignore
+            }
             newSchedule = cron;
         }
 

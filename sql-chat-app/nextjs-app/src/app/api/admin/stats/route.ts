@@ -26,7 +26,8 @@ export async function GET() {
         prisma.conversation.count(),
         prisma.message.count(),
         prisma.savedReport.count(),
-        prisma.user.count({ where: { dbConnectionString: { not: null } } }),
+        // Users with at least one DbConnection are considered "connected"
+        prisma.user.count({ where: { connections: { some: {} } } }),
         // Last 7 days of message activity bucketed by day
         prisma.$queryRaw<{ day: Date; count: bigint }[]>`
             SELECT DATE_TRUNC('day', "createdAt") AS day, COUNT(*) AS count
@@ -44,10 +45,13 @@ export async function GET() {
             id: true,
             name: true,
             email: true,
-            dbDialect: true,
-            dbConnectionString: true,
             createdAt: true,
             updatedAt: true,
+            connections: {
+                take: 1,
+                orderBy: { createdAt: "desc" },
+                select: { dbDialect: true, isDefault: true },
+            },
             _count: {
                 select: {
                     conversations: true,
@@ -86,8 +90,8 @@ export async function GET() {
         id: u.id,
         name: u.name,
         email: u.email,
-        dbConnected: !!u.dbConnectionString,
-        dbDialect: u.dbDialect,
+        dbConnected: u.connections.length > 0,
+        dbDialect: u.connections[0]?.dbDialect ?? null,
         conversationCount: u._count.conversations,
         messageCount: userMsgCount.get(u.id) ?? 0,
         savedReportCount: u._count.savedReports,
