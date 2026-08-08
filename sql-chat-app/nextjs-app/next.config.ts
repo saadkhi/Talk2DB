@@ -2,9 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.1.10'],
+
+  // Prevent Next.js from bundling Node.js-only packages that rely on native
+  // bindings or require a long-running Redis connection. These are used only
+  // by the standalone worker process (src/worker.ts), never inside App Router
+  // route handlers.
+  serverExternalPackages: ["bullmq", "ioredis"],
+
   async rewrites() {
-    // All API routes are now native Next.js — no Express proxy needed.
-    // The Express backend (port 8000) is no longer required to run.
     return [];
   },
   async headers() {
