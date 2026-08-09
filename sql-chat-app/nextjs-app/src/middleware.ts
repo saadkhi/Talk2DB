@@ -34,6 +34,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-    // Only run on admin and dashboard routes — skip _next, static, api, auth
+    // Only run on admin and dashboard routes — skip _next, static, api, auth, demo
     matcher: ["/admin/:path*", "/dashboard/:path*"],
 };

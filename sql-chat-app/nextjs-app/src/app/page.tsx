@@ -207,7 +207,7 @@ export default function LandingPage() {
                     Talk<span style={{ color: "#6366f1" }}>2</span>DB
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <Link href="/dashboard" style={{ fontSize: "13px", fontWeight: 600, color: "#9CA3AF", padding: "6px 16px", borderRadius: "8px", textDecoration: "none", transition: "color 0.15s" }}
+                    <Link href="/demo" style={{ fontSize: "13px", fontWeight: 600, color: "#9CA3AF", padding: "6px 16px", borderRadius: "8px", textDecoration: "none", transition: "color 0.15s" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#fff"}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#9CA3AF"}>
                         Try Demo
@@ -256,7 +256,7 @@ export default function LandingPage() {
                         Start for Free
                         <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
                     </Link>
-                    <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "14px 28px", borderRadius: "12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", color: "#D1D5DB", fontSize: "15px", fontWeight: 700, textDecoration: "none", transition: "all 0.15s" }}
+                    <Link href="/demo" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "14px 28px", borderRadius: "12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", color: "#D1D5DB", fontSize: "15px", fontWeight: 700, textDecoration: "none", transition: "all 0.15s" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "#D1D5DB"; }}>
                         <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" /></svg>
@@ -479,7 +479,7 @@ export default function LandingPage() {
                             Create Free Account
                             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
                         </Link>
-                        <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "15px 28px", borderRadius: "12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", color: "#D1D5DB", fontSize: "15px", fontWeight: 700, textDecoration: "none", transition: "all 0.15s" }}
+                        <Link href="/demo" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "15px 28px", borderRadius: "12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", color: "#D1D5DB", fontSize: "15px", fontWeight: 700, textDecoration: "none", transition: "all 0.15s" }}
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "#D1D5DB"; }}>
                             Try Demo First
