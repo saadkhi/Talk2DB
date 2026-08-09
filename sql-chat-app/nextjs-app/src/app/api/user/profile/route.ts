@@ -49,6 +49,11 @@ export async function GET() {
             id: user.id,
             name: user.name,
             email: user.email,
+            connections: await prisma.dbConnection.findMany({
+                where: { userId: user.id },
+                select: { id: true, name: true, dbDialect: true, isDefault: true },
+                orderBy: { createdAt: "asc" },
+            }),
         });
     } catch (error: any) {
         if (process.env.NODE_ENV !== "production") console.error("Profile GET error:", error);
