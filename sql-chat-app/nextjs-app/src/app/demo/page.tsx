@@ -150,7 +150,161 @@ const PRESETS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers
+// Natural-language → SQL converter (no API needed, pattern-based)
+// ─────────────────────────────────────────────────────────────────────────────
+function naturalLanguageToSQL(input: string): string | null {
+    const q = input.trim().toLowerCase();
+
+    // If it already looks like SQL, return null (caller keeps input as-is)
+    if (/^\s*(select|show|describe|with)\b/i.test(input)) return null;
+
+    // Detect which table the user is asking about
+    let table = "customers";
+    if (/product|item|stock|inventory|price|category/i.test(q)) table = "products";
+    else if (/employee|staff|salary|department|hire|worker/i.test(q)) table = "employees";
+    else if (/order|purchase|total|status|shipped|pending|completed|cancelled/i.test(q)) table = "orders";
+    else if (/customer|client|user|person|people|name|email|country|premium/i.test(q)) table = "customers";
+
+    // ── Column selection hints ───────────────────────────────────────────────
+    let selectCols = "*";
+    if (/email/i.test(q) && table === "customers") selectCols = "name, email, country";
+    else if (/name only|only name/i.test(q)) selectCols = "name";
+    else if (/country/i.test(q) && table === "customers") selectCols = "name, email, country";
+    else if (/salary/i.test(q)) selectCols = "name, department, salary";
+    else if (/price/i.test(q) && table === "products") selectCols = "name, category, price, stock";
+
+    // ── WHERE conditions ─────────────────────────────────────────────────────
+    let where = "";
+
+    // initial / starts with / first letter
+    const initialMatch = q.match(/initial\s+(?:is\s+)?['"]?([a-z])['"]?/i) ||
+                         q.match(/(?:name\s+)?starts?\s+with\s+['"]?([a-z])['"]?/i) ||
+                         q.match(/(?:first|starting)\s+letter\s+(?:is\s+)?['"]?([a-z])['"]?/i) ||
+                         q.match(/whose\s+initial\s+is\s+['"]?([a-z])['"]?/i);
+    if (initialMatch) {
+        const letter = initialMatch[1].toUpperCase();
+        where = `WHERE name LIKE '${letter}%'`;
+    }
+
+    // contains / includes
+    const containsMatch = q.match(/(?:name\s+)?contains?\s+['"]?(\w+)['"]?/i) ||
+                          q.match(/(?:name\s+)?includes?\s+['"]?(\w+)['"]?/i);
+    if (!where && containsMatch) {
+        where = `WHERE name LIKE '%${containsMatch[1]}%'`;
+    }
+
+    // country = X
+    const countryMatch = q.match(/(?:from|in|country\s+(?:is\s+)?)\s+['"]?([a-z]+)['"]?/i);
+    if (!where && countryMatch && table === "customers") {
+        const country = countryMatch[1];
+        const valid = ["usa","canada","uk","germany","china","japan","india","italy","spain","france","brazil","mexico","korea","ghana","sweden","poland","vietnam"];
+        if (valid.includes(country.toLowerCase())) {
+            where = `WHERE country = '${country.charAt(0).toUpperCase() + country.slice(1)}'`;
+        }
+    }
+
+    // premium customers
+    if (!where && /premium/i.test(q) && table === "customers") {
+        where = `WHERE is_premium = true`;
+    }
+    // non-premium
+    if (!where && /non.?premium|not premium/i.test(q) && table === "customers") {
+        where = `WHERE is_premium = false`;
+    }
+
+    // salary > / < / above / below
+    const salaryAbove = q.match(/salary\s+(?:above|over|greater\s+than|more\s+than|>)\s+(\d+)/i);
+    const salaryBelow = q.match(/salary\s+(?:below|under|less\s+than|<)\s+(\d+)/i);
+    if (!where && salaryAbove) where = `WHERE salary > ${salaryAbove[1]}`;
+    if (!where && salaryBelow) where = `WHERE salary < ${salaryBelow[1]}`;
+
+    // price > / < 
+    const priceAbove = q.match(/price\s+(?:above|over|greater\s+than|more\s+than|>)\s+(\d+)/i);
+    const priceBelow = q.match(/price\s+(?:below|under|less\s+than|<)\s+(\d+)/i);
+    if (!where && priceAbove) where = `WHERE price > ${priceAbove[1]}`;
+    if (!where && priceBelow) where = `WHERE price < ${priceBelow[1]}`;
+
+    // stock low / out of stock
+    if (!where && /low stock|out of stock|running low/i.test(q) && table === "products") {
+        where = `WHERE stock < 100`;
+    }
+
+    // order status
+    const statusMatch = q.match(/(?:status\s+(?:is\s+)?['"]?)(completed|pending|shipped|cancelled)['"]?/i) ||
+                        q.match(/\b(completed|pending|shipped|cancelled)\s+orders?\b/i);
+    if (!where && statusMatch && table === "orders") {
+        where = `WHERE status = '${statusMatch[1].toLowerCase()}'`;
+    }
+
+    // department
+    const deptMatch = q.match(/(?:in|from|department\s+(?:is\s+)?['"]?)(engineering|marketing|hr|finance)['"]?/i);
+    if (!where && deptMatch && table === "employees") {
+        const dept = deptMatch[1].charAt(0).toUpperCase() + deptMatch[1].slice(1);
+        where = `WHERE department = '${dept}'`;
+    }
+
+    // ── Aggregation hints ────────────────────────────────────────────────────
+    let groupBy = "";
+    let aggSelect = selectCols;
+
+    if (/by country/i.test(q) && table === "customers") {
+        aggSelect = "country, COUNT(*) as customer_count";
+        groupBy = "GROUP BY country";
+        where = "";
+    } else if (/by category/i.test(q) && table === "products") {
+        aggSelect = "category, COUNT(*) as products, ROUND(AVG(price),2) as avg_price";
+        groupBy = "GROUP BY category";
+        where = "";
+    } else if (/by department/i.test(q) && table === "employees") {
+        aggSelect = "department, COUNT(*) as headcount, ROUND(AVG(salary),0) as avg_salary";
+        groupBy = "GROUP BY department";
+        where = "";
+    } else if (/by status/i.test(q) && table === "orders") {
+        aggSelect = "status, COUNT(*) as count, ROUND(SUM(total),2) as total_revenue";
+        groupBy = "GROUP BY status";
+        where = "";
+    }
+
+    // ── count / how many ─────────────────────────────────────────────────────
+    if (/how many|count of|total number/i.test(q) && !groupBy) {
+        aggSelect = "COUNT(*) as total_count";
+    }
+
+    // ── ORDER BY hints ───────────────────────────────────────────────────────
+    let orderBy = "";
+    if (/highest|most expensive|top|best/i.test(q)) {
+        if (table === "products") orderBy = "ORDER BY price DESC";
+        else if (table === "employees") orderBy = "ORDER BY salary DESC";
+        else if (table === "orders") orderBy = "ORDER BY total DESC";
+    }
+    if (/lowest|cheapest|least|bottom/i.test(q)) {
+        if (table === "products") orderBy = "ORDER BY price ASC";
+        else if (table === "employees") orderBy = "ORDER BY salary ASC";
+    }
+    if (/latest|recent|newest/i.test(q)) orderBy = "ORDER BY created_at DESC";
+    if (/oldest|first/i.test(q)) orderBy = "ORDER BY created_at ASC";
+    if (/alphabetical|a.?z/i.test(q)) orderBy = "ORDER BY name ASC";
+
+    // LIMIT hints
+    let limit = "";
+    const topN = q.match(/top\s+(\d+)|first\s+(\d+)|limit\s+(\d+)/i);
+    if (topN) limit = `LIMIT ${topN[1] || topN[2] || topN[3]}`;
+
+    const parts = [
+        `SELECT ${groupBy ? aggSelect : (aggSelect !== "*" ? aggSelect : "*")}`,
+        `FROM ${table}`,
+        where,
+        groupBy,
+        orderBy,
+        limit,
+    ].filter(Boolean);
+
+    return parts.join("\n");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Local SQL executor — supports SELECT, WHERE (=,!=,>,<,>=,<=,LIKE), GROUP BY,
+// ORDER BY, LIMIT against the hardcoded DEMO dataset
 // ─────────────────────────────────────────────────────────────────────────────
 function runLocalQuery(sql: string): { columns: string[]; rows: Row[]; error?: string } {
     try {
@@ -159,29 +313,55 @@ function runLocalQuery(sql: string): { columns: string[]; rows: Row[]; error?: s
         // Determine which table to use
         let tableKey = "customers";
         for (const key of Object.keys(DEMO)) {
-            if (s.includes(` ${key}`) || s.includes(`from ${key}`)) {
+            if (s.includes(`from ${key}`) || new RegExp(`\\b${key}\\b`).test(s)) {
                 tableKey = key; break;
             }
         }
         const source = DEMO[tableKey];
-
         let rows = [...source.rows];
 
-        // WHERE filters (basic: = and true/false)
-        const whereMatch = s.match(/where\s+(.+?)(?:group by|order by|limit|$)/);
+        // ── WHERE ─────────────────────────────────────────────────────────────
+        const whereMatch = s.match(/where\s+(.+?)(?:\s+group\s+by|\s+order\s+by|\s+limit|$)/);
         if (whereMatch) {
             const cond = whereMatch[1].trim();
-            const eqMatch = cond.match(/(\w+)\s*=\s*['"]?(\w+)['"]?/);
-            const gtMatch = cond.match(/(\w+)\s*>\s*(\d+)/);
-            const ltMatch = cond.match(/(\w+)\s*<\s*(\d+)/);
-            if (eqMatch) {
-                const [, col, val] = eqMatch;
-                rows = rows.filter(r => String(r[col]).toLowerCase() === val.toLowerCase() || String(r[col]) === val);
-            } else if (gtMatch) {
-                const [, col, val] = gtMatch;
+
+            const likeMatch  = cond.match(/(\w+)\s+i?like\s+['"]([^'"]+)['"]/i);
+            const eqBool     = cond.match(/(\w+)\s*=\s*(true|false)/i);
+            const eqStr      = cond.match(/(\w+)\s*=\s*'([^']+)'/i);
+            const eqNum      = cond.match(/(\w+)\s*=\s*(\d+(?:\.\d+)?)/);
+            const neq        = cond.match(/(\w+)\s*(?:!=|<>)\s*'([^']+)'/i);
+            const gte        = cond.match(/(\w+)\s*>=\s*(\d+(?:\.\d+)?)/);
+            const lte        = cond.match(/(\w+)\s*<=\s*(\d+(?:\.\d+)?)/);
+            const gt         = cond.match(/(\w+)\s*>\s*(\d+(?:\.\d+)?)/);
+            const lt         = cond.match(/(\w+)\s*<\s*(\d+(?:\.\d+)?)/);
+
+            if (likeMatch) {
+                const [, col, pattern] = likeMatch;
+                const re = new RegExp("^" + pattern.replace(/%/g, ".*").replace(/_/g, ".") + "$", "i");
+                rows = rows.filter(r => re.test(String(r[col] ?? "")));
+            } else if (eqBool) {
+                const [, col, val] = eqBool;
+                rows = rows.filter(r => String(r[col]).toLowerCase() === val.toLowerCase());
+            } else if (eqStr) {
+                const [, col, val] = eqStr;
+                rows = rows.filter(r => String(r[col]).toLowerCase() === val.toLowerCase());
+            } else if (eqNum) {
+                const [, col, val] = eqNum;
+                rows = rows.filter(r => Number(r[col]) === Number(val));
+            } else if (neq) {
+                const [, col, val] = neq;
+                rows = rows.filter(r => String(r[col]).toLowerCase() !== val.toLowerCase());
+            } else if (gte) {
+                const [, col, val] = gte;
+                rows = rows.filter(r => Number(r[col]) >= Number(val));
+            } else if (lte) {
+                const [, col, val] = lte;
+                rows = rows.filter(r => Number(r[col]) <= Number(val));
+            } else if (gt) {
+                const [, col, val] = gt;
                 rows = rows.filter(r => Number(r[col]) > Number(val));
-            } else if (ltMatch) {
-                const [, col, val] = ltMatch;
+            } else if (lt) {
+                const [, col, val] = lt;
                 rows = rows.filter(r => Number(r[col]) < Number(val));
             }
         }
@@ -349,45 +529,46 @@ function QueryTab() {
     const [aiPrompt, setAiPrompt] = useState("");
     const [generating, setGenerating] = useState(false);
     const [activePreset, setActivePreset] = useState(0);
+    const [nlFeedback, setNlFeedback] = useState<string | null>(null);
 
     const runQuery = (q: string) => {
-        setLoading(true); setError(null);
+        setLoading(true); setError(null); setNlFeedback(null);
         setTimeout(() => {
             const r = runLocalQuery(q);
             if (r.error) setError(r.error);
             else setResult(r);
             setLoading(false);
-        }, 300);
+        }, 200);
     };
 
     const handlePreset = (i: number) => {
         setActivePreset(i);
         setSql(PRESETS[i].sql);
+        setAiPrompt("");
+        setNlFeedback(null);
         runQuery(PRESETS[i].sql);
     };
 
-    const generateSQL = async () => {
+    const handleNaturalLanguage = () => {
         if (!aiPrompt.trim()) return;
-        setGenerating(true);
-        try {
-            const res = await fetch("/api/guest/query", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sql: aiPrompt }),
-            });
-            const data = await res.json();
-            if (data.error) {
-                // Fall back to local query if API fails
-                const r = runLocalQuery(aiPrompt);
-                if (!r.error) { setResult(r); setSql(aiPrompt); }
-                else setError("Try one of the preset queries above, or type SQL directly.");
+        setGenerating(true); setNlFeedback(null); setError(null);
+
+        // Try NL → SQL conversion first
+        const generated = naturalLanguageToSQL(aiPrompt);
+
+        setTimeout(() => {
+            if (generated) {
+                // Successfully converted to SQL
+                setSql(generated);
+                setNlFeedback(`Converted to SQL: "${aiPrompt}"`);
+                runQuery(generated);
             } else {
-                setResult(data);
+                // Input was already SQL-like — run it directly
+                setSql(aiPrompt);
+                runQuery(aiPrompt);
             }
-        } catch {
-            const r = runLocalQuery(aiPrompt);
-            if (!r.error) { setResult(r); setSql(aiPrompt); }
-        } finally { setGenerating(false); }
+            setGenerating(false);
+        }, 300);
     };
 
     return (
@@ -397,18 +578,27 @@ function QueryTab() {
                 <p style={{ fontSize: "11px", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Ask in plain English or write SQL directly</p>
                 <div style={{ display: "flex", gap: "8px" }}>
                     <input value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}
-                        placeholder="e.g. Show top 5 products by price  OR  SELECT * FROM customers..."
-                        onKeyDown={e => e.key === "Enter" && !generating && generateSQL()}
+                        placeholder="e.g. customers whose name starts with J  OR  SELECT * FROM products WHERE price > 100"
+                        onKeyDown={e => e.key === "Enter" && !generating && handleNaturalLanguage()}
                         style={{ flex: 1, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "9px", color: "#fff", padding: "10px 14px", fontSize: "13px", fontFamily: "inherit", outline: "none" }}
                         onFocus={e => (e.currentTarget.style.borderColor = "#6366f1")}
                         onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")} />
-                    <button onClick={generateSQL} disabled={generating || !aiPrompt.trim()}
+                    <button onClick={handleNaturalLanguage} disabled={generating || !aiPrompt.trim()}
                         style={{ padding: "10px 20px", borderRadius: "9px", fontSize: "12px", fontWeight: 700, background: generating ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", color: "#fff", cursor: generating ? "not-allowed" : "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "7px" }}>
                         {generating && <div style={{ width: "12px", height: "12px", border: "2px solid rgba(255,255,255,0.3)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />}
                         {generating ? "Running…" : "▶ Run"}
                     </button>
                 </div>
             </div>
+
+            {/* NL → SQL feedback */}
+            {nlFeedback && (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: "9px", fontSize: "11px", color: "#a5b4fc" }}>
+                    <svg width="13" height="13" fill="none" stroke="#6366f1" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                    <span>✓ Natural language converted to SQL and executed</span>
+                    <button onClick={() => setNlFeedback(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: "13px" }}>×</button>
+                </div>
+            )}
 
             {/* Preset chips */}
             <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
