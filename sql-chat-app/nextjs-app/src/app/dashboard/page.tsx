@@ -144,6 +144,46 @@ const TOOLS = [
         ),
     },
     {
+        href: "/dashboard/data-autoflow",
+        title: "Data AutoFlow",
+        description: "Extract, profile, and compare CSV, Excel, and PDF datasets with AI-powered insights.",
+        accent: "#06b6d4",
+        bg: "rgba(6,182,212,0.12)",
+        glow: "rgba(6,182,212,0.25)",
+        illustration: (
+            <svg width="80" height="64" viewBox="0 0 80 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="72" height="56" rx="8" fill="rgba(6,182,212,0.06)" stroke="rgba(6,182,212,0.2)" strokeWidth="1"/>
+                {/* CSV file */}
+                <rect x="8" y="10" width="20" height="24" rx="3" fill="rgba(6,182,212,0.15)" stroke="rgba(6,182,212,0.4)" strokeWidth="1"/>
+                <line x1="11" y1="17" x2="25" y2="17" stroke="rgba(6,182,212,0.6)" strokeWidth="1"/>
+                <line x1="11" y1="21" x2="22" y2="21" stroke="rgba(6,182,212,0.4)" strokeWidth="1"/>
+                <line x1="11" y1="25" x2="24" y2="25" stroke="rgba(6,182,212,0.4)" strokeWidth="1"/>
+                <text x="18" y="31" fontFamily="monospace" fontSize="5" fill="#06b6d4" textAnchor="middle">CSV</text>
+                {/* Arrow */}
+                <path d="M30 22 L38 22" stroke="#06b6d4" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M35 19 L38 22 L35 25" stroke="#06b6d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                {/* Process box */}
+                <rect x="38" y="14" width="16" height="16" rx="4" fill="rgba(6,182,212,0.2)" stroke="rgba(6,182,212,0.5)" strokeWidth="1"/>
+                <text x="46" y="20" fontFamily="monospace" fontSize="5" fill="#06b6d4" textAnchor="middle">AI</text>
+                <text x="46" y="26" fontFamily="monospace" fontSize="4" fill="#06b6d4" textAnchor="middle">Flow</text>
+                {/* Arrow out */}
+                <path d="M54 22 L62 22" stroke="#06b6d4" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M59 19 L62 22 L59 25" stroke="#06b6d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                {/* Results */}
+                <rect x="62" y="14" width="12" height="7" rx="2" fill="rgba(52,211,153,0.2)" stroke="rgba(52,211,153,0.4)" strokeWidth="0.8"/>
+                <rect x="62" y="23" width="12" height="7" rx="2" fill="rgba(245,158,11,0.2)" stroke="rgba(245,158,11,0.4)" strokeWidth="0.8"/>
+                {/* Bottom compare visual */}
+                <rect x="8" y="40" width="28" height="16" rx="3" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.2)" strokeWidth="1"/>
+                <rect x="44" y="40" width="28" height="16" rx="3" fill="rgba(167,139,250,0.08)" stroke="rgba(167,139,250,0.2)" strokeWidth="1"/>
+                <text x="22" y="51" fontFamily="sans-serif" fontSize="6" fill="#06b6d4" textAnchor="middle">Dataset A</text>
+                <text x="58" y="51" fontFamily="sans-serif" fontSize="6" fill="#a78bfa" textAnchor="middle">Dataset B</text>
+                <path d="M36 48 L44 48" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="2 1" strokeLinecap="round"/>
+                <text x="40" y="46" fontFamily="sans-serif" fontSize="4" fill="#f59e0b" textAnchor="middle">~</text>
+            </svg>
+        ),
+    },
+
+    {
         href: "/dashboard/data-profiler",
         title: "Data Profiler",
         description: "Analyze data quality, detect anomalies and column insights.",

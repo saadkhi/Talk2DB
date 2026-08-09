@@ -16,12 +16,15 @@
     "@prisma/client": "^6.19.3",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/bcryptjs": "^2.4.6",
+    "@types/papaparse": "^5.5.2",
     "bcryptjs": "^3.0.3",
     "bullmq": "^6.0.9",
     "lucide-react": "^1.30.0",
     "next": "16.2.4",
     "next-auth": "^4.24.14",
     "next-themes": "^0.4.6",
+    "papaparse": "^5.5.4",
+    "pdf-parse": "^2.2.2",
     "pg": "^8.20.0",
     "plotly.js": "^3.7.0",
     "postcss": "^8.5.16",
@@ -32,7 +35,8 @@
     "react-plotly.js": "^4.1.0",
     "recharts": "^3.8.1",
     "resend": "^6.4.2",
-    "tailwindcss": "^4.3.2"
+    "tailwindcss": "^4.3.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
