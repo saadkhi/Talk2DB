@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { DatabaseProvider } from "@/context/DatabaseContext";
 import { PageStateProvider, usePageState } from "@/context/PageStateContext";
+import { QueryHistoryProvider } from "@/context/QueryHistoryContext";
 import DashboardShell from "@/components/layout/DashboardShell";
 
 /**
@@ -17,13 +18,10 @@ function SchemaCacheWatcher({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (prevStatus.current === null) {
-            // First render — just record the initial status, don't reset yet
             prevStatus.current = status;
             return;
         }
         if (prevStatus.current !== status) {
-            // Status changed (loading→authenticated, authenticated→unauthenticated, etc.)
-            // Flush cached schema so pages re-fetch from the right endpoint
             resetSchemaCache();
             prevStatus.current = status;
         }
@@ -36,9 +34,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
         <DatabaseProvider>
             <PageStateProvider>
-                <SchemaCacheWatcher>
-                    <DashboardShell>{children}</DashboardShell>
-                </SchemaCacheWatcher>
+                <QueryHistoryProvider>
+                    <SchemaCacheWatcher>
+                        <DashboardShell>{children}</DashboardShell>
+                    </SchemaCacheWatcher>
+                </QueryHistoryProvider>
             </PageStateProvider>
         </DatabaseProvider>
     );
