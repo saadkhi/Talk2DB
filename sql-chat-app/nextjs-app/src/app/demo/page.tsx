@@ -155,21 +155,23 @@ const PRESETS = [
 function naturalLanguageToSQL(input: string): string | null {
     const q = input.trim().toLowerCase();
 
-    // If it already looks like SQL, return null (caller keeps input as-is)
-    if (/^\s*(select|show|describe|with)\b/i.test(input)) return null;
+    // If it already looks like pure SQL (starts with SELECT/WITH/DESCRIBE — NOT "show me")
+    // "show me..." is natural language; "SELECT..." is SQL
+    if (/^\s*(select|with|describe)\b/i.test(input)) return null;
+    // Only treat "show" as SQL if it's directly followed by table-like syntax (e.g. SHOW TABLES)
+    if (/^\s*show\s+(tables|databases|columns|create|index)/i.test(input)) return null;
 
     // Detect which table the user is asking about
     let table = "customers";
-    if (/product|item|stock|inventory|price|category/i.test(q)) table = "products";
-    else if (/employee|staff|salary|department|hire|worker/i.test(q)) table = "employees";
-    else if (/order|purchase|total|status|shipped|pending|completed|cancelled/i.test(q)) table = "orders";
-    else if (/customer|client|user|person|people|name|email|country|premium/i.test(q)) table = "customers";
+    if (/\b(product|item|stock|inventory|price|category)\b/i.test(q)) table = "products";
+    else if (/\b(employee|staff|salary|department|hire|worker|engineer)\b/i.test(q)) table = "employees";
+    else if (/\b(order|purchase|total|status|shipped|pending|completed|cancelled|revenue)\b/i.test(q)) table = "orders";
+    // customers is the default — also matches "people", "those", "who", "person", "users"
 
     // ── Column selection hints ───────────────────────────────────────────────
     let selectCols = "*";
-    if (/email/i.test(q) && table === "customers") selectCols = "name, email, country";
-    else if (/name only|only name/i.test(q)) selectCols = "name";
-    else if (/country/i.test(q) && table === "customers") selectCols = "name, email, country";
+    if (/\bemail\b/i.test(q) && table === "customers") selectCols = "name, email, country";
+    else if (/name only|only (?:the )?name/i.test(q)) selectCols = "name";
     else if (/salary/i.test(q)) selectCols = "name, department, salary";
     else if (/price/i.test(q) && table === "products") selectCols = "name, category, price, stock";
 
@@ -193,22 +195,54 @@ function naturalLanguageToSQL(input: string): string | null {
         where = `WHERE name LIKE '%${containsMatch[1]}%'`;
     }
 
-    // country = X
-    const countryMatch = q.match(/(?:from|in|country\s+(?:is\s+)?)\s+['"]?([a-z]+)['"]?/i);
-    if (!where && countryMatch && table === "customers") {
-        const country = countryMatch[1];
-        const valid = ["usa","canada","uk","germany","china","japan","india","italy","spain","france","brazil","mexico","korea","ghana","sweden","poland","vietnam"];
-        if (valid.includes(country.toLowerCase())) {
-            where = `WHERE country = '${country.charAt(0).toUpperCase() + country.slice(1)}'`;
+    // country matching — scan anywhere in the sentence for a country name
+    const COUNTRIES: Record<string, string> = {
+        "usa": "USA", "united states": "USA", "us": "USA", "america": "USA",
+        "canada": "Canada", "canadian": "Canada",
+        "uk": "UK", "united kingdom": "UK", "britain": "UK", "england": "UK",
+        "germany": "Germany", "german": "Germany",
+        "china": "China", "chinese": "China",
+        "japan": "Japan", "japanese": "Japan",
+        "india": "India", "indian": "India",
+        "italy": "Italy", "italian": "Italy",
+        "spain": "Spain", "spanish": "Spain",
+        "france": "France", "french": "France",
+        "brazil": "Brazil", "brazilian": "Brazil",
+        "mexico": "Mexico", "mexican": "Mexico",
+        "korea": "Korea", "korean": "Korea",
+        "ghana": "Ghana", "ghanaian": "Ghana",
+        "sweden": "Sweden", "swedish": "Sweden",
+        "poland": "Poland", "polish": "Poland",
+        "vietnam": "Vietnam", "vietnamese": "Vietnam",
+    };
+
+    if (!where && table === "customers") {
+        // Try explicit "in/from/live in/based in X" pattern first
+        const inMatch = q.match(/(?:live[sd]?\s+in|from|in|based\s+in|located\s+in|country\s+(?:is\s+)?)\s+['"]?([a-z\s]+?)['"]?(?:\s|$|,|\.|and|or|who|that)/i);
+        if (inMatch) {
+            const candidate = inMatch[1].trim().toLowerCase();
+            // Try multi-word first, then single word
+            const mapped = COUNTRIES[candidate] || COUNTRIES[candidate.split(/\s+/)[0]];
+            if (mapped) where = `WHERE country = '${mapped}'`;
+        }
+        // Fallback: scan whole sentence for any country name
+        if (!where) {
+            for (const [key, val] of Object.entries(COUNTRIES)) {
+                // Word boundary match
+                if (new RegExp(`\\b${key}\\b`, "i").test(q)) {
+                    where = `WHERE country = '${val}'`;
+                    break;
+                }
+            }
         }
     }
 
     // premium customers
-    if (!where && /premium/i.test(q) && table === "customers") {
+    if (!where && /\bpremium\b/i.test(q) && !/non.?premium|not premium/i.test(q) && table === "customers") {
         where = `WHERE is_premium = true`;
     }
-    // non-premium
-    if (!where && /non.?premium|not premium/i.test(q) && table === "customers") {
+    // non-premium / not premium / regular customers
+    if (!where && (/non.?premium|not premium|\bregular\b/i.test(q)) && table === "customers") {
         where = `WHERE is_premium = false`;
     }
 
