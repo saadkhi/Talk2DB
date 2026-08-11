@@ -54,6 +54,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true });
     } catch (err: any) {
         console.error("[resend-code]", err);
-        return NextResponse.json({ error: err.message || "Failed to resend code" }, { status: 500 });
+        const msg: string = err?.message ?? "";
+        if (msg.includes("does not exist in the current database")) {
+            return NextResponse.json({ error: "Database is being updated. Please try again in a moment." }, { status: 503 });
+        }
+        return NextResponse.json({ error: err.message || "Failed to resend code. Please try again." }, { status: 500 });
     }
 }

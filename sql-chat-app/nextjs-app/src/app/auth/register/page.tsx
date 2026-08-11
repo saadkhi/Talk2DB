@@ -48,7 +48,10 @@ export default function RegisterPage() {
                 return;
             }
             // Redirect to OTP verification page; pass email + encoded password for auto-login after verify
-            router.push(`/auth/verify-email?email=${encodeURIComponent(email)}&pw=${encodeURIComponent(password)}`);
+            const params = new URLSearchParams({ email });
+            params.set("pw", password);
+            if (data.emailWarning) params.set("warn", data.emailWarning);
+            router.push(`/auth/verify-email?${params.toString()}`);
         } catch (err) {
             console.error(err);
             setError("An unexpected error occurred. Please try again.");

@@ -12,6 +12,7 @@ function VerifyEmailInner() {
     const searchParams = useSearchParams();
     const email = searchParams.get("email") ?? "";
     const password = searchParams.get("pw") ?? ""; // passed from register to auto sign-in
+    const emailWarning = searchParams.get("warn") ?? "";
 
     const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
     const [error, setError] = useState<string | null>(null);
@@ -209,6 +210,12 @@ function VerifyEmailInner() {
                                 <strong style={{ color: "#D1D5DB" }}>{email}</strong>
                                 <br />Enter it below to verify your account.
                             </p>
+
+                            {emailWarning && (
+                                <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: "10px", padding: "10px 14px", fontSize: "12px", color: "#fbbf24", marginBottom: "18px" }}>
+                                    ⚠ {emailWarning}
+                                </div>
+                            )}
 
                             <form onSubmit={handleSubmit}>
                                 {/* OTP digit boxes */}
