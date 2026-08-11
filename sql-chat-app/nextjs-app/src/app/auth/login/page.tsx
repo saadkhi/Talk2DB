@@ -13,6 +13,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [githubLoading, setGithubLoading] = useState(false);
 
@@ -38,7 +39,14 @@ export default function LoginPage() {
             });
 
             if (res?.error) {
-                setError("Invalid email or password.");
+                // NextAuth wraps our thrown error — check if it's the verification error
+                if (res.error === "EMAIL_NOT_VERIFIED" || res.error?.includes("EMAIL_NOT_VERIFIED")) {
+                    setUnverifiedEmail(email);
+                    setError("EMAIL_NOT_VERIFIED");
+                } else {
+                    setUnverifiedEmail(null);
+                    setError("Invalid email or password.");
+                }
             } else {
                 router.refresh();
                 router.push("/dashboard");
@@ -98,7 +106,32 @@ export default function LoginPage() {
                     </div>
 
                     <form onSubmit={handleSubmit} className={styles.form}>
-                        {error && <div style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</div>}
+                        {error && error !== "EMAIL_NOT_VERIFIED" && (
+                            <div style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</div>
+                        )}
+                        {error === "EMAIL_NOT_VERIFIED" && (
+                            <div style={{
+                                background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)",
+                                borderRadius: "10px", padding: "12px 16px", fontSize: "13px",
+                            }}>
+                                <p style={{ color: "#fbbf24", fontWeight: 700, margin: "0 0 4px" }}>⚠ Email not verified</p>
+                                <p style={{ color: "#9CA3AF", margin: "0 0 10px", fontSize: "12px" }}>
+                                    Check your inbox for the 6-digit code we sent to{" "}
+                                    <strong style={{ color: "#D1D5DB" }}>{unverifiedEmail}</strong>.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => router.push(`/auth/verify-email?email=${encodeURIComponent(unverifiedEmail ?? email)}&pw=${encodeURIComponent(password)}`)}
+                                    style={{
+                                        padding: "6px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 700,
+                                        background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)",
+                                        color: "#fbbf24", cursor: "pointer", fontFamily: "inherit",
+                                    }}
+                                >
+                                    Enter verification code →
+                                </button>
+                            </div>
+                        )}
 
                         <div className={styles.inputGroup}>
                             <label htmlFor="login-email" className={styles.label}>Email Address</label>

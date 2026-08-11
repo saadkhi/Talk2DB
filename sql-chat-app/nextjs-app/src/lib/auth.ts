@@ -50,10 +50,20 @@ export const authOptions: NextAuthOptions = {
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) return null;
-                const user = await prisma.user.findUnique({ where: { email: credentials.email } });
+                const user = await prisma.user.findUnique({
+                    where: { email: credentials.email },
+                    select: { id: true, email: true, name: true, password: true, emailVerified: true },
+                });
                 if (!user || !user.password) return null;
                 const isValid = await bcrypt.compare(credentials.password, user.password);
                 if (!isValid) return null;
+
+                // Block sign-in for unverified accounts
+                if (!user.emailVerified) {
+                    // Throw a specific error the login page can detect
+                    throw new Error("EMAIL_NOT_VERIFIED");
+                }
+
                 return { id: user.id, email: user.email, name: user.name };
             },
         }),

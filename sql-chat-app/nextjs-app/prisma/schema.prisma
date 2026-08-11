@@ -12,6 +12,10 @@ model User {
   name                  String?
   email                 String         @unique
   password              String?        // bcrypt hashed
+  // ── Email verification (OTP) ──────────────────────────────────────────────
+  emailVerified         DateTime?      // null = unverified; set when OTP confirmed
+  verifyCode            String?        // 6-digit OTP (bcrypt hashed)
+  verifyCodeExpiry      DateTime?      // OTP expires 15 min after issue
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
   connections           DbConnection[]

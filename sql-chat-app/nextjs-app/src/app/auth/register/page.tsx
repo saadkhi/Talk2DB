@@ -47,13 +47,8 @@ export default function RegisterPage() {
                 setLoading(false);
                 return;
             }
-            const loginRes = await signIn("credentials", { redirect: false, email, password });
-            if (loginRes?.error) {
-                router.push("/auth/login");
-            } else {
-                router.refresh();
-                router.push("/dashboard");
-            }
+            // Redirect to OTP verification page; pass email + encoded password for auto-login after verify
+            router.push(`/auth/verify-email?email=${encodeURIComponent(email)}&pw=${encodeURIComponent(password)}`);
         } catch (err) {
             console.error(err);
             setError("An unexpected error occurred. Please try again.");
