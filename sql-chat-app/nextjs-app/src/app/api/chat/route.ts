@@ -3,62 +3,32 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { callLLM } from "@/lib/llm";
-import { getUserDbPool } from "@/lib/dbConnection";
 import { resolveUserWithDb } from "@/lib/resolveUser";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 import { checkPromptGuardrail } from "@/lib/promptGuardrail";
+import { getEnrichedSchema, formatSchemaForLLM } from "@/lib/schemaContext";
 
 // Allow up to 120s for the APIFreeLLM free-tier response
 export const maxDuration = 120;
 
-const SYSTEM_PROMPT = `You are Talk2DB, an expert database assistant. You help users interact with their PostgreSQL database using plain English.
+const BASE_SYSTEM_PROMPT = `You are Talk2DB, an expert database assistant. You help users interact with their database using plain English.
 
 Your capabilities:
-- Translate natural language questions into accurate PostgreSQL SELECT queries
+- Translate natural language questions into accurate SQL SELECT queries
+- Write multi-table JOIN queries using the foreign key relationships in the schema
 - Explain query results in plain English
 - Help users understand their database schema and relationships
 - Suggest follow-up queries to explore data further
-- Explain SQL concepts clearly when asked
 
 Rules:
 1. When a user asks a data question, generate a SQL query AND explain what it does
 2. Format SQL queries in a markdown code block (\`\`\`sql ... \`\`\`)
-3. If a database schema is provided, use the EXACT table and column names from that schema
-4. Only generate SELECT queries — never INSERT, UPDATE, DELETE, DROP, or mutating SQL
-5. Keep responses concise — lead with the SQL, then a brief explanation
-6. If the user asks something unrelated to databases or SQL, politely redirect them`;
+3. If a database schema is provided, use the EXACT table and column names shown
+4. For queries spanning multiple tables, ALWAYS use JOINs based on the FK relationships listed in the schema
+5. Only generate SELECT queries — never INSERT, UPDATE, DELETE, DROP, or any mutating SQL
+6. Keep responses concise — lead with the SQL, then a brief explanation
+7. If the user asks something unrelated to databases or SQL, politely redirect them`;
 
-async function getSchemaContext(encryptedConnString: string): Promise<string> {
-    try {
-        const pool = await getUserDbPool(encryptedConnString);
-        const tablesResult = await pool.query(`
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-            ORDER BY table_name
-        `);
-
-        const tables = await Promise.all(
-            tablesResult.rows.map(async (row: any) => {
-                const colResult = await pool.query(
-                    `SELECT column_name, data_type
-                     FROM information_schema.columns
-                     WHERE table_name = $1 AND table_schema = 'public'
-                     ORDER BY ordinal_position`,
-                    [row.table_name]
-                );
-                const cols = colResult.rows
-                    .map((c: any) => `${c.column_name} (${c.data_type})`)
-                    .join(", ");
-                return `Table: ${row.table_name}\nColumns: ${cols}`;
-            })
-        );
-
-        return tables.join("\n\n");
-    } catch {
-        return "";
-    }
-}
 
 export async function POST(req: Request) {
     // Rate limiting
@@ -88,15 +58,16 @@ export async function POST(req: Request) {
         // Resolve user with DB connection
         const user = await resolveUserWithDb(session);
 
-        // Build schema-aware system prompt
-        let systemPrompt = SYSTEM_PROMPT;
+        // Build schema-aware system prompt using enriched FK-aware schema
+        let systemPrompt = BASE_SYSTEM_PROMPT;
         if (user?.dbConnectionString) {
-            const schemaContext = await getSchemaContext(user.dbConnectionString);
-            if (schemaContext) {
-                systemPrompt = `${SYSTEM_PROMPT}\n\nDATABASE SCHEMA (use these exact names):\n${schemaContext}`;
+            const schema = await getEnrichedSchema(user.dbConnectionString);
+            const schemaText = formatSchemaForLLM(schema);
+            if (schemaText) {
+                systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nDATABASE SCHEMA (use these exact names and JOINs):\n${schemaText}`;
             }
         } else {
-            systemPrompt = `${SYSTEM_PROMPT}\n\nNote: No database connected yet. You can explain SQL concepts and help craft queries, but cannot run them against a live database.`;
+            systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nNote: No database connected yet. You can explain SQL concepts and help craft queries, but cannot run them against a live database.`;
         }
 
         const userId = user?.id;
