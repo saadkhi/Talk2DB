@@ -22,7 +22,7 @@ import { authOptions } from "@/lib/auth";
 
 // pdf-parse and xlsx are Node.js-only — mark this route as server-only
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface ColumnStat {

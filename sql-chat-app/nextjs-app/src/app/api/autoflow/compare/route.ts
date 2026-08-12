@@ -36,7 +36,7 @@ import { resolveUserWithDb } from "@/lib/resolveUser";
 import { executeQuery } from "@/lib/dbConnection";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 // ── Levenshtein-based fuzzy score (0–100) ─────────────────────────────────────
 function fuzzyScore(a: string, b: string): number {

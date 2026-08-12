@@ -50,7 +50,7 @@ const geminiProvider: LLMProvider = {
                 contents: [{ role: "user", parts: [{ text: userMessage }] }],
                 generationConfig: { temperature: 0.1, maxOutputTokens: 1500 },
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(55000),
         });
 
         if (!response.ok) {
@@ -93,7 +93,7 @@ const openaiProvider: LLMProvider = {
                 max_tokens: 1500,
                 temperature: 0.1,
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(55000),
         });
 
         if (!response.ok) {
@@ -115,36 +115,52 @@ const openRouterProvider: LLMProvider = {
     call: async (systemPrompt, userMessage) => {
         const apiKey = process.env.OPENROUTER_API_KEY!;
         const baseUrl = (process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1").replace(/\/$/, "");
-        const model = process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b:free";
+        // Primary model — configurable. Default: deepseek-chat is fast and free.
+        const model = process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat-v3-0324:free";
 
-        const response = await fetch(`${baseUrl}/chat/completions`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`,
-                "X-Title": "Talk2DB",
-            },
-            body: JSON.stringify({
-                model,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userMessage },
-                ],
-                max_tokens: 1500,
-                temperature: 0.1,
-            }),
-            signal: AbortSignal.timeout(30000),
-        });
+        const tryModel = async (m: string, timeoutMs: number) => {
+            const response = await fetch(`${baseUrl}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`,
+                    "X-Title": "Talk2DB",
+                },
+                body: JSON.stringify({
+                    model: m,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userMessage },
+                    ],
+                    max_tokens: 1500,
+                    temperature: 0.1,
+                }),
+                signal: AbortSignal.timeout(timeoutMs),
+            });
 
-        if (!response.ok) {
-            const err = await response.text();
-            throw new Error(`OpenRouter error (${response.status}): ${err}`);
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`OpenRouter error (${response.status}): ${err}`);
+            }
+
+            const data = await response.json();
+            const content = data?.choices?.[0]?.message?.content;
+            if (content) return String(content).trim();
+            throw new Error("Invalid OpenRouter response format");
+        };
+
+        // Try primary model with 50s timeout
+        try {
+            return await tryModel(model, 50000);
+        } catch (primaryErr: any) {
+            // If primary timed out or failed, try a fast fallback model
+            if (primaryErr.message?.includes("abort") || primaryErr.message?.includes("timeout") || primaryErr.name === "TimeoutError") {
+                console.error(`[OpenRouter] Primary model (${model}) timed out, trying fallback...`);
+                // Fallback: meta-llama is reliably fast on free tier
+                return await tryModel("meta-llama/llama-3.1-8b-instruct:free", 50000);
+            }
+            throw primaryErr;
         }
-
-        const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (content) return String(content).trim();
-        throw new Error("Invalid OpenRouter response format");
     },
 };
 
@@ -169,7 +185,7 @@ const anthropicProvider: LLMProvider = {
                 system: systemPrompt,
                 messages: [{ role: "user", content: userMessage }],
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(55000),
         });
 
         if (!response.ok) {

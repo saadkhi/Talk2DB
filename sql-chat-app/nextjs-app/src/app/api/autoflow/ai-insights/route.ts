@@ -26,7 +26,7 @@ import { callLLM } from "@/lib/llm";
 import { resolveUserId } from "@/lib/resolveUser";
 import { rateLimit, getIdentifier, RATE_LIMITS } from "@/lib/rateLimit";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(req: Request) {
     // Rate-limit using the query limit bucket (same cost)
