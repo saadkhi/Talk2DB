@@ -19,7 +19,7 @@ let _transport: nodemailer.Transporter | null = null;
 function getTransport(): nodemailer.Transporter {
     if (_transport) return _transport;
 
-    const user = process.env.GMAIL_USER ?? "airtrackeroffic@gmail.com";
+    const user = process.env.GMAIL_USER ?? "talk2db.org@gmail.com";
     const pass = process.env.GMAIL_APP_PASSWORD;
 
     if (!pass) {
@@ -45,7 +45,7 @@ export async function sendVerificationEmail(
     userName: string | null,
     otp: string
 ): Promise<void> {
-    const from = process.env.GMAIL_USER ?? "airtrackeroffic@gmail.com";
+    const from = process.env.GMAIL_USER ?? "talk2db.org@gmail.com";
 
     const html = `
 <!DOCTYPE html>
@@ -90,7 +90,7 @@ export async function sendVerificationEmail(
 
     <!-- Footer -->
     <p style="text-align:center;color:#374151;font-size:11px;margin-top:24px;">
-      © 2025 Talk2DB · Sent from airtrackeroffic@gmail.com
+      © 2025 Talk2DB · Sent from talk2db.org@gmail.com
     </p>
   </div>
 </body>
